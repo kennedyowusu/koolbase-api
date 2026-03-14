@@ -80,7 +80,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authResp, err := h.svc.Login(r.Context(), req, r.RemoteAddr, r.UserAgent())
+	authResp, err := h.svc.Login(r.Context(), req, realIP(r), r.UserAgent())
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidCredentials):
@@ -216,4 +216,14 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond.OK(w, map[string]string{"message": "password updated"})
+}
+
+func realIP(r *http.Request) string {
+    if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+        return strings.Split(ip, ",")[0]
+    }
+    if ip := r.Header.Get("X-Real-IP"); ip != "" {
+        return ip
+    }
+    return r.RemoteAddr
 }
