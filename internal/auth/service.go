@@ -79,6 +79,16 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 		return nil, fmt.Errorf("store verification token: %w", err)
 	}
 
+	// Send verification email directly
+	verifyURL := fmt.Sprintf("%s/verify-email?token=%s", s.appURL, plainToken)
+	if err := s.mailer.Send(ctx, email.Message{
+		To:      user.Email,
+		Subject: "Verify your Koolbase account",
+		HTML:    "<p>Click <a href=\"" + verifyURL + "\">here</a> to verify your email. This link expires in 24 hours.</p>",
+	}); err != nil {
+		log.Error().Err(err).Str("email", user.Email).Msg("send verification email failed")
+	}
+
 	s.bus.Publish(events.Event{
 		Type: events.UserSignedUp,
 		Payload: events.UserSignedUpPayload{
@@ -163,6 +173,16 @@ func (s *Service) ForgotPassword(ctx context.Context, req ForgotPasswordRequest)
 		return fmt.Errorf("store reset token: %w", err)
 	}
 
+	// Send reset email directly
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.appURL, plainToken)
+	if err := s.mailer.Send(ctx, email.Message{
+		To:      user.Email,
+		Subject: "Reset your Koolbase password",
+		HTML:    "<p>Click <a href=\"" + resetURL + "\">here</a> to reset your password. This link expires in 1 hour.</p>",
+	}); err != nil {
+		log.Error().Err(err).Str("email", user.Email).Msg("send reset email failed")
+	}
+
 	s.bus.Publish(events.Event{
 		Type: events.UserRequestedReset,
 		Payload: events.UserRequestedResetPayload{
@@ -231,8 +251,6 @@ func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(h[:])
 }
-
-
 
 func (s *Service) UpdateUser(ctx context.Context, userID, email string) (*User, error) {
 	return s.repo.UpdateUser(ctx, userID, email)
