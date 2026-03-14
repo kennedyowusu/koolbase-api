@@ -14,6 +14,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/time/rate"
 
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
@@ -84,6 +85,9 @@ func main() {
 	authService := auth.NewService(authRepo, orgHandler, mailer, bus, appURL)
 	authHandler := auth.NewHandler(authService)
 
+	// 5 requests per minute, burst of 10
+	authLimiter := apimiddleware.NewIPRateLimiter(rate.Every(time.Minute/5), 10)
+
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
@@ -109,11 +113,11 @@ func main() {
 		r.Get("/bootstrap", bootstrapHandler.Handle)
 
 		// Auth routes
-		r.Post("/auth/signup", authHandler.Signup)
-		r.Post("/auth/login", authHandler.Login)
+		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/signup", authHandler.Signup)
+		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/login", authHandler.Login)
 		r.Post("/auth/logout", authHandler.Logout)
 		r.Post("/auth/verify-email", authHandler.VerifyEmail)
-		r.Post("/auth/forgot-password", authHandler.ForgotPassword)
+		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/forgot-password", authHandler.ForgotPassword)
 		r.Post("/auth/reset-password", authHandler.ResetPassword)
 
 		// Management routes — protected by JWT
