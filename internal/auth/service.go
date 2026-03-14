@@ -124,6 +124,15 @@ func (s *Service) VerifyEmail(ctx context.Context, req VerifyEmailRequest) error
 	}
 
 	s.bus.Publish(events.Event{Type: events.UserVerifiedEmail, Payload: record.UserID})
+
+	if user, err := s.repo.GetUserByID(ctx, record.UserID); err == nil {
+    go s.mailer.Send(ctx, email.Message{
+        To:      user.Email,
+        Subject: "Welcome to Koolbase",
+        HTML:    welcomeEmailHTML(user.Email, s.appURL, "https://docs.koolbase.com"),
+    })
+}
+
 	return nil
 }
 
