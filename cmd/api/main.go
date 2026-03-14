@@ -119,6 +119,7 @@ func main() {
 		r.Post("/auth/verify-email", authHandler.VerifyEmail)
 		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/forgot-password", authHandler.ForgotPassword)
 		r.Post("/auth/reset-password", authHandler.ResetPassword)
+			r.Post("/auth/verify-email-change", authHandler.ConfirmEmailChange)
 
 		// Management routes — protected by JWT
 		r.Group(func(r chi.Router) {
@@ -129,7 +130,7 @@ func main() {
 				r.Get("/organizations/{org_id}", orgHandler.Get)
 				r.Patch("/organizations/{org_id}", orgHandler.Update)
 				r.Get("/me", authHandler.Me)
-				r.Patch("/me", authHandler.UpdateMe)
+				r.Patch("/me", authHandler.RequestEmailChange)
 				r.Patch("/me/password", authHandler.ChangePassword)
 			r.Post("/organizations/{org_id}/projects", projectHandler.Create)
 			r.Get("/organizations/{org_id}/projects", projectHandler.List)

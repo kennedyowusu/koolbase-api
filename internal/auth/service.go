@@ -276,3 +276,63 @@ func (s *Service) UpdateUser(ctx context.Context, userID, email string) (*User, 
 func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
 	return s.repo.ChangePassword(ctx, userID, currentPassword, newPassword)
 }
+
+func (s *Service) RequestEmailChange(ctx context.Context, userID, newEmail string) error {
+	// Check email not already taken
+	existing, _ := s.repo.GetUserByEmail(ctx, newEmail)
+	if existing != nil {
+		return ErrEmailTaken
+	}
+
+	// Store pending email
+	if err := s.repo.SetPendingEmail(ctx, userID, newEmail); err != nil {
+		return fmt.Errorf("set pending email: %w", err)
+	}
+
+	// Generate verification token
+	plainToken, tokenHash, err := generateToken()
+	if err != nil {
+		return fmt.Errorf("generate token: %w", err)
+	}
+
+	if err := s.repo.CreateEmailVerificationToken(ctx, userID, tokenHash, time.Now().Add(verifyTokenTTL)); err != nil {
+		return fmt.Errorf("store token: %w", err)
+	}
+
+	// Send verification to new email
+	verifyURL := fmt.Sprintf("%s/verify-email-change?token=%s", s.appURL, plainToken)
+	if err := s.mailer.Send(context.Background(), email.Message{
+		To:      newEmail,
+		Subject: "Confirm your new email address",
+		HTML:    verificationEmailHTML(verifyURL),
+	}); err != nil {
+		return fmt.Errorf("send email: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) ConfirmEmailChange(ctx context.Context, token string) error {
+	tokenHash := hashToken(token)
+
+	record, err := s.repo.GetEmailVerificationToken(ctx, tokenHash)
+	if err != nil {
+		return ErrTokenInvalid
+	}
+	if record.UsedAt != nil {
+		return ErrTokenUsed
+	}
+	if time.Now().After(record.ExpiresAt) {
+		return ErrTokenExpired
+	}
+
+	if err := s.repo.ConfirmEmailChange(ctx, record.UserID); err != nil {
+		return fmt.Errorf("confirm email change: %w", err)
+	}
+
+	if err := s.repo.MarkEmailVerificationTokenUsed(ctx, record.ID); err != nil {
+		return fmt.Errorf("mark token used: %w", err)
+	}
+
+	return nil
+}

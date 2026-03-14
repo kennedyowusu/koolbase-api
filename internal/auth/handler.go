@@ -227,3 +227,47 @@ func realIP(r *http.Request) string {
     }
     return r.RemoteAddr
 }
+
+func (h *Handler) RequestEmailChange(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(middleware.UserKey).(*User)
+	if !ok || user == nil {
+		respond.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var body struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Email == "" {
+		respond.Error(w, http.StatusBadRequest, "email is required")
+		return
+	}
+
+	if err := h.svc.RequestEmailChange(r.Context(), user.ID, body.Email); err != nil {
+		if err == ErrEmailTaken {
+			respond.Error(w, http.StatusConflict, "email already in use")
+			return
+		}
+		respond.Error(w, http.StatusInternalServerError, "failed to request email change")
+		return
+	}
+
+	respond.OK(w, map[string]string{"message": "verification email sent to new address"})
+}
+
+func (h *Handler) ConfirmEmailChange(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Token == "" {
+		respond.Error(w, http.StatusBadRequest, "token is required")
+		return
+	}
+
+	if err := h.svc.ConfirmEmailChange(r.Context(), body.Token); err != nil {
+		respond.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respond.OK(w, map[string]string{"message": "email updated successfully"})
+}

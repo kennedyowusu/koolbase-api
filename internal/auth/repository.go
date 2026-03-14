@@ -26,6 +26,8 @@ type Repository interface {
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteAllUserSessions(ctx context.Context, userID string) error
 	UpdateUser(ctx context.Context, userID, email string) (*User, error)
+	SetPendingEmail(ctx context.Context, userID, pendingEmail string) error
+	ConfirmEmailChange(ctx context.Context, userID string) error
 	ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error
 }
 
@@ -204,5 +206,21 @@ func (r *PostgresRepository) ChangePassword(ctx context.Context, userID, current
 		return fmt.Errorf("failed to hash password")
 	}
 	_, err = r.db.Exec(ctx, `UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1`, userID, string(newHash))
+	return err
+}
+
+func (r *PostgresRepository) SetPendingEmail(ctx context.Context, userID, pendingEmail string) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE users SET pending_email = $2 WHERE id = $1`,
+		userID, pendingEmail,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ConfirmEmailChange(ctx context.Context, userID string) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE users SET email = pending_email, pending_email = NULL WHERE id = $1`,
+		userID,
+	)
 	return err
 }
