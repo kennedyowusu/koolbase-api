@@ -164,7 +164,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, ip, userAgent str
 	go s.mailer.Send(context.Background(), email.Message{
 		To:      user.Email,
 		Subject: "New login detected on your Koolbase account",
-		HTML:    newLoginEmailHTML(user.Email, ip, "Unknown", userAgent, loginTime),
+		HTML: newLoginEmailHTML(user.Email, ip, "Unknown", "Web Browser", loginTime),
 	})
 
 	return &AuthResponse{AccessToken: plainToken, User: user}, nil
