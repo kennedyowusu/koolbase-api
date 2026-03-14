@@ -160,7 +160,15 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, ip, userAgent str
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
+	loginTime := time.Now().UTC().Format("Jan 2, 2006 at 15:04 (UTC)")
+	go s.mailer.Send(context.Background(), email.Message{
+		To:      user.Email,
+		Subject: "New login detected on your Koolbase account",
+		HTML:    newLoginEmailHTML(user.Email, ip, "Unknown", userAgent, loginTime),
+	})
+
 	return &AuthResponse{AccessToken: plainToken, User: user}, nil
+
 }
 
 func (s *Service) Logout(ctx context.Context, rawToken string) error {
