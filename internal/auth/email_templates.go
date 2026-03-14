@@ -40,7 +40,7 @@ func verificationEmailHTML(verifyURL string) string {
     <table border="0" cellpadding="0" cellspacing="0" width="520" style="margin-top:32px;">
       <tr><td align="center" style="font-size:12px;color:#6B7280;">
         <div style="margin-bottom:12px;">
-          <a href="https://docs.koolbase.com" style="color:#6B7280;margin:0 8px;">Docs</a> •
+          <a href="https://koolbase.com/docs" style="color:#6B7280;margin:0 8px;">Docs</a> •
           <a href="https://koolbase.com/support" style="color:#6B7280;margin:0 8px;">Support</a> •
           <a href="https://koolbase.com/terms" style="color:#6B7280;margin:0 8px;">Terms</a> •
           <a href="https://koolbase.com/privacy" style="color:#6B7280;margin:0 8px;">Privacy</a>
@@ -108,7 +108,7 @@ func passwordResetEmailHTML(resetURL string) string {
 <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="margin-top:32px;">
   <tr><td align="center" style="font-size:12px;color:#475569;">
     <div style="margin-bottom:12px;">
-      <a href="https://docs.koolbase.com" style="color:#475569;margin:0 10px;">Docs</a> •
+      <a href="https://koolbase.com/docs" style="color:#475569;margin:0 10px;">Docs</a> •
       <a href="https://koolbase.com/support" style="color:#475569;margin:0 10px;">Support</a> •
       <a href="https://koolbase.com/terms" style="color:#475569;margin:0 10px;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#475569;margin:0 10px;">Privacy</a>
@@ -209,7 +209,7 @@ func welcomeEmailHTML(name, dashboardURL, docsURL string) string {
       <!-- Footer -->
       <tr><td align="center" style="padding:32px;background-color:rgba(15,23,42,0.5);border-top:1px solid #1f2937;">
         <div style="margin-bottom:16px;">
-          <a href="https://docs.koolbase.com" style="color:#64748b;font-size:12px;margin:0 10px;">Docs</a> •
+          <a href="https://koolbase.com/docs" style="color:#64748b;font-size:12px;margin:0 10px;">Docs</a> •
           <a href="https://koolbase.com/support" style="color:#64748b;font-size:12px;margin:0 10px;">Support</a> •
           <a href="https://koolbase.com/terms" style="color:#64748b;font-size:12px;margin:0 10px;">Terms</a> •
           <a href="https://koolbase.com/privacy" style="color:#64748b;font-size:12px;margin:0 10px;">Privacy</a>
@@ -307,7 +307,7 @@ func newLoginEmailHTML(email, ipAddress, location, device, loginTime string) str
 <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="margin-top:32px;">
   <tr><td align="center" style="font-size:12px;color:#4b5563;">
     <div style="margin-bottom:12px;">
-      <a href="https://docs.koolbase.com" style="color:#4b5563;margin:0 10px;">Docs</a> •
+      <a href="https://koolbase.com/docs" style="color:#4b5563;margin:0 10px;">Docs</a> •
       <a href="https://koolbase.com/support" style="color:#4b5563;margin:0 10px;">Support</a> •
       <a href="https://koolbase.com/terms" style="color:#4b5563;margin:0 10px;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#4b5563;margin:0 10px;">Privacy</a>
@@ -365,7 +365,7 @@ func usageLimitEmailHTML(currentUsage, limit string, upgradeURL, dashboardURL st
       </td></tr>
       <tr><td align="center" style="padding:24px 32px;background-color:rgba(15,23,42,0.5);border-top:1px solid #1f2937;">
         <div style="margin-bottom:12px;">
-          <a href="https://docs.koolbase.com" style="color:#475569;font-size:12px;margin:0 8px;">Docs</a> •
+          <a href="https://koolbase.com/docs" style="color:#475569;font-size:12px;margin:0 8px;">Docs</a> •
           <a href="https://koolbase.com/support" style="color:#475569;font-size:12px;margin:0 8px;">Support</a> •
           <a href="https://koolbase.com/terms" style="color:#475569;font-size:12px;margin:0 8px;">Terms</a> •
           <a href="https://koolbase.com/privacy" style="color:#475569;font-size:12px;margin:0 8px;">Privacy</a>
@@ -431,7 +431,7 @@ func paymentFailedEmailHTML(last4, updateURL, invoiceURL string) string {
 <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="margin-top:32px;">
   <tr><td align="center" style="font-size:12px;color:#4b5563;">
     <div style="margin-bottom:12px;">
-      <a href="https://docs.koolbase.com" style="color:#4b5563;margin:0 10px;">Docs</a> •
+      <a href="https://koolbase.com/docs" style="color:#4b5563;margin:0 10px;">Docs</a> •
       <a href="https://koolbase.com/support" style="color:#4b5563;margin:0 10px;">Support</a> •
       <a href="https://koolbase.com/terms" style="color:#4b5563;margin:0 10px;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#4b5563;margin:0 10px;">Privacy</a>
@@ -491,7 +491,7 @@ func subscriptionCancelledEmailHTML(accessUntil, reactivateURL string) string {
 <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="margin-top:32px;">
   <tr><td align="center" style="font-size:12px;color:#4b5563;">
     <div style="margin-bottom:12px;">
-      <a href="https://docs.koolbase.com" style="color:#4b5563;margin:0 10px;text-transform:uppercase;letter-spacing:0.05em;">Docs</a> •
+      <a href="https://koolbase.com/docs" style="color:#4b5563;margin:0 10px;text-transform:uppercase;letter-spacing:0.05em;">Docs</a> •
       <a href="https://koolbase.com/support" style="color:#4b5563;margin:0 10px;text-transform:uppercase;letter-spacing:0.05em;">Support</a> •
       <a href="https://koolbase.com/terms" style="color:#4b5563;margin:0 10px;text-transform:uppercase;letter-spacing:0.05em;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#4b5563;margin:0 10px;text-transform:uppercase;letter-spacing:0.05em;">Privacy</a>
