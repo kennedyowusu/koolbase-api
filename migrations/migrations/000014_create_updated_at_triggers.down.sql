@@ -1,0 +1,12 @@
+DROP TRIGGER IF EXISTS set_updated_at_kb_auth_providers ON kb_auth_providers;
+DROP TRIGGER IF EXISTS set_updated_at_kb_functions ON kb_functions;
+DROP TRIGGER IF EXISTS set_updated_at_experiments ON experiments;
+DROP TRIGGER IF EXISTS set_updated_at_segments ON segments;
+DROP TRIGGER IF EXISTS set_updated_at_version_policies ON version_policies;
+DROP TRIGGER IF EXISTS set_updated_at_remote_configs ON remote_configs;
+DROP TRIGGER IF EXISTS set_updated_at_feature_flags ON feature_flags;
+DROP TRIGGER IF EXISTS set_updated_at_environments ON environments;
+DROP TRIGGER IF EXISTS set_updated_at_projects ON projects;
+DROP TRIGGER IF EXISTS set_updated_at_users ON users;
+DROP TRIGGER IF EXISTS set_updated_at_organizations ON organizations;
+DROP FUNCTION IF EXISTS set_updated_at;
