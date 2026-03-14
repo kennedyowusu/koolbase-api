@@ -84,7 +84,7 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 	if err := s.mailer.Send(ctx, email.Message{
 		To:      user.Email,
 		Subject: "Verify your Koolbase account",
-		HTML:    "<p>Click <a href=\"" + verifyURL + "\">here</a> to verify your email. This link expires in 24 hours.</p>",
+		HTML: verificationEmailHTML(verifyURL),
 	}); err != nil {
 		log.Error().Err(err).Str("email", user.Email).Msg("send verification email failed")
 	}
@@ -178,7 +178,7 @@ func (s *Service) ForgotPassword(ctx context.Context, req ForgotPasswordRequest)
 	if err := s.mailer.Send(ctx, email.Message{
 		To:      user.Email,
 		Subject: "Reset your Koolbase password",
-		HTML:    "<p>Click <a href=\"" + resetURL + "\">here</a> to reset your password. This link expires in 1 hour.</p>",
+		HTML: passwordResetEmailHTML(resetURL),
 	}); err != nil {
 		log.Error().Err(err).Str("email", user.Email).Msg("send reset email failed")
 	}
