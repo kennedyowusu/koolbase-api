@@ -120,7 +120,7 @@ func (h *Handler) Invite(w http.ResponseWriter, r *http.Request) {
 	respond.OK(w, inv)
 }
 
-func (h *Handler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ValidateInvite(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Token string `json:"token"`
 	}

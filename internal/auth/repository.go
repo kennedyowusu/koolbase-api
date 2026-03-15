@@ -263,8 +263,14 @@ func (r *PostgresRepository) PurgeDeletedAccounts(ctx context.Context) error {
 }
 
 func (r *PostgresRepository) GetInviteOrgAndRole(ctx context.Context, tokenHash string, orgID *string, role *string) error {
-	return r.db.QueryRow(ctx,
-		`SELECT org_id, role FROM invitations WHERE token_hash = $1 AND accepted_at IS NOT NULL AND expires_at > NOW()`,
+	err := r.db.QueryRow(ctx,
+		`SELECT org_id, role FROM invitations WHERE token_hash = $1 AND accepted_at IS NULL AND expires_at > NOW()`,
 		tokenHash,
 	).Scan(orgID, role)
+	if err != nil {
+		return err
+	}
+	// Mark as accepted now that signup is completing
+	_, err = r.db.Exec(ctx, `UPDATE invitations SET accepted_at = NOW() WHERE token_hash = $1`, tokenHash)
+	return err
 }
