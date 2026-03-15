@@ -24,8 +24,12 @@ func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.Email == "" || req.Password == "" || req.OrgName == "" {
-		respond.Error(w, http.StatusBadRequest, "email, password, and org_name are required")
+	if req.Email == "" || req.Password == "" {
+		respond.Error(w, http.StatusBadRequest, "email and password are required")
+		return
+	}
+	if req.InviteToken == "" && req.OrgName == "" {
+		respond.Error(w, http.StatusBadRequest, "org_name is required")
 		return
 	}
 	if len(req.Password) < 8 {
