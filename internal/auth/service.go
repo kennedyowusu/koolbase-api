@@ -55,10 +55,32 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 		return nil, ErrEmailTaken
 	}
 	if existing != nil && existing.DeletedAt != nil {
-		// Reactivate soft-deleted account
+		// Reactivate soft-deleted account with new password
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)
+		if err != nil {
+			return nil, fmt.Errorf("hash password: %w", err)
+		}
 		if err := s.repo.ReactivateAccount(ctx, existing.ID, req.Email); err != nil {
 			return nil, fmt.Errorf("reactivate account: %w", err)
 		}
+		if err := s.repo.UpdatePassword(ctx, existing.ID, string(hash)); err != nil {
+			return nil, fmt.Errorf("update password: %w", err)
+		}
+		// Send verification email
+		plainToken, tokenHash, err := generateToken()
+		if err != nil {
+			return nil, fmt.Errorf("generate verification token: %w", err)
+		}
+		if err := s.repo.CreateEmailVerificationToken(ctx, existing.ID, tokenHash, time.Now().Add(verifyTokenTTL)); err != nil {
+			return nil, fmt.Errorf("store verification token: %w", err)
+		}
+		verifyURL := fmt.Sprintf("%s/verify-email?token=%s", s.appURL, plainToken)
+		s.mailer.Send(ctx, email.Message{
+			To:      existing.Email,
+			Subject: "Verify your Koolbase account",
+			HTML:    verificationEmailHTML(verifyURL),
+		})
+		return existing, nil
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)
