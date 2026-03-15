@@ -88,12 +88,27 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	orgID, err := s.orgSvc.CreateOrg(ctx, req.OrgName)
-	if err != nil {
-		return nil, fmt.Errorf("create org: %w", err)
+	var orgID string
+	var userRole string = "owner"
+
+	if req.InviteToken != "" {
+		// Get org from invitation
+		tokenHash := hashToken(req.InviteToken)
+		var invOrgID, invRole string
+		err := s.repo.GetInviteOrgAndRole(ctx, tokenHash, &invOrgID, &invRole)
+		if err != nil {
+			return nil, fmt.Errorf("invalid invite token: %w", err)
+		}
+		orgID = invOrgID
+		userRole = invRole
+	} else {
+		orgID, err = s.orgSvc.CreateOrg(ctx, req.OrgName)
+		if err != nil {
+			return nil, fmt.Errorf("create org: %w", err)
+		}
 	}
 
-	user, err := s.repo.CreateUser(ctx, orgID, req.Email, string(hash), "owner")
+	user, err := s.repo.CreateUser(ctx, orgID, req.Email, string(hash), userRole)
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}

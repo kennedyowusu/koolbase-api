@@ -41,9 +41,10 @@ type PasswordResetToken struct {
 }
 
 type SignupRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	OrgName  string `json:"org_name"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	OrgName     string `json:"org_name"`
+	InviteToken string `json:"invite_token"`
 }
 
 type LoginRequest struct {

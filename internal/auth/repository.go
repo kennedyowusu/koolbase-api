@@ -32,6 +32,7 @@ type Repository interface {
 	GetUserByEmailIncludeDeleted(ctx context.Context, email string) (*User, error)
 	ReactivateAccount(ctx context.Context, userID, email string) error
 	PurgeDeletedAccounts(ctx context.Context) error
+	GetInviteOrgAndRole(ctx context.Context, tokenHash string, orgID *string, role *string) error
 	ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error
 }
 
@@ -259,4 +260,11 @@ func (r *PostgresRepository) PurgeDeletedAccounts(ctx context.Context) error {
 		`DELETE FROM users WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'`,
 	)
 	return err
+}
+
+func (r *PostgresRepository) GetInviteOrgAndRole(ctx context.Context, tokenHash string, orgID *string, role *string) error {
+	return r.db.QueryRow(ctx,
+		`SELECT org_id, role FROM invitations WHERE token_hash = $1 AND accepted_at IS NOT NULL AND expires_at > NOW()`,
+		tokenHash,
+	).Scan(orgID, role)
 }
