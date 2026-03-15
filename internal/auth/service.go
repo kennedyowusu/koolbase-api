@@ -366,5 +366,17 @@ func (s *Service) ConfirmEmailChange(ctx context.Context, token string) error {
 }
 
 func (s *Service) DeleteAccount(ctx context.Context, userID string) error {
-	return s.repo.DeleteAccount(ctx, userID)
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+	if err := s.repo.DeleteAccount(ctx, userID); err != nil {
+		return err
+	}
+	go s.mailer.Send(context.Background(), email.Message{
+		To:      user.Email,
+		Subject: "Your Koolbase account has been deleted",
+		HTML:    accountDeletedEmailHTML(user.Email),
+	})
+	return nil
 }

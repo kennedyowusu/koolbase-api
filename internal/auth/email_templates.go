@@ -502,3 +502,81 @@ func subscriptionCancelledEmailHTML(accessUntil, reactivateURL string) string {
 </table>
 </body></html>`, accessUntil, reactivateURL)
 }
+
+func accountDeletedEmailHTML(email string) string {
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #0a0c10; color: #f1f5f9; margin: 0; padding: 0; }
+  table { border-collapse: collapse; }
+  a { text-decoration: none; color: #2b8cee; }
+</style>
+</head>
+<body style="background-color:#0a0c10;margin:0;padding:48px 16px;">
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%%">
+  <tr><td align="center" style="padding-bottom:24px;">
+    <table border="0" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="padding-right:10px;">
+          <svg fill="none" height="32" width="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="#2b8cee"/>
+          </svg>
+        </td>
+        <td style="font-size:22px;font-weight:700;color:#ffffff;">Koolbase</td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%%">
+  <tr><td align="center">
+    <table border="0" cellpadding="0" cellspacing="0" width="560" style="background-color:#111418;border:1px solid #1e2531;border-radius:12px;overflow:hidden;">
+      <tr><td align="center" style="padding:40px 40px 32px 40px;">
+
+        <!-- Icon -->
+        <div style="background-color:rgba(239,68,68,0.1);border-radius:50%%;width:64px;height:64px;display:inline-block;text-align:center;line-height:64px;font-size:32px;margin-bottom:24px;">🗑️</div>
+
+        <h1 style="font-size:26px;font-weight:700;color:#ffffff;margin:0 0 12px 0;">Account Deleted</h1>
+        <p style="font-size:15px;color:#94a3b8;line-height:1.7;margin:0 0 24px 0;">
+          Hi <strong style="color:#ffffff;">%s</strong>, your Koolbase account has been successfully deleted.
+        </p>
+
+        <!-- Grace period box -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="margin-bottom:24px;">
+          <tr><td style="background-color:rgba(43,140,238,0.05);border:1px solid rgba(43,140,238,0.2);border-radius:8px;padding:16px 20px;">
+            <p style="font-size:13px;color:#94a3b8;margin:0;line-height:1.7;">
+              <strong style="color:#2b8cee;">30-day grace period:</strong> Your data will be permanently deleted after 30 days.
+              If you deleted your account by mistake, you can sign up again with the same email address within this period to restore access.
+            </p>
+          </td></tr>
+        </table>
+
+        <p style="font-size:14px;color:#64748b;line-height:1.7;margin:0;">
+          If you did not request this deletion or believe this was a mistake, please contact us immediately at
+          <a href="mailto:techfinityedge@gmail.com" style="color:#2b8cee;">techfinityedge@gmail.com</a>.
+        </p>
+
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%%" style="margin-top:32px;">
+  <tr><td align="center" style="font-size:12px;color:#475569;">
+    <div style="margin-bottom:12px;">
+      <a href="https://docs.koolbase.com" style="color:#475569;margin:0 10px;">Docs</a> •
+      <a href="mailto:techfinityedge@gmail.com" style="color:#475569;margin:0 10px;">Support</a> •
+      <a href="https://koolbase.com/terms" style="color:#475569;margin:0 10px;">Terms</a> •
+      <a href="https://koolbase.com/privacy" style="color:#475569;margin:0 10px;">Privacy</a>
+    </div>
+    <p style="margin:0;color:#334155;">© 2025 Koolbase Inc. All rights reserved.</p>
+  </td></tr>
+</table>
+
+</body>
+</html>`, email)
+}
