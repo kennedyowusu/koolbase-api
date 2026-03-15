@@ -243,3 +243,44 @@ func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(h[:])
 }
+
+func (h *Handler) PeekInvite(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Token == "" {
+		respond.Error(w, http.StatusBadRequest, "token is required")
+		return
+	}
+
+	tokenHash := hashToken(body.Token)
+
+	var inv Invitation
+	err := h.db.QueryRow(r.Context(),
+		`SELECT id, org_id, email, role, accepted_at, expires_at FROM invitations WHERE token_hash = $1`,
+		tokenHash,
+	).Scan(&inv.ID, &inv.OrgID, &inv.Email, &inv.Role, &inv.AcceptedAt, &inv.ExpiresAt)
+	if err != nil {
+		respond.Error(w, http.StatusBadRequest, ErrInviteInvalid.Error())
+		return
+	}
+	if inv.AcceptedAt != nil {
+		respond.Error(w, http.StatusBadRequest, ErrInviteUsed.Error())
+		return
+	}
+	if time.Now().After(inv.ExpiresAt) {
+		respond.Error(w, http.StatusBadRequest, ErrInviteExpired.Error())
+		return
+	}
+
+	// Check if user already exists
+	var existingUserID string
+	h.db.QueryRow(r.Context(), `SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL`, inv.Email).Scan(&existingUserID)
+
+	respond.OK(w, map[string]interface{}{
+		"email":         inv.Email,
+		"org_id":        inv.OrgID,
+		"role":          inv.Role,
+		"existing_user": existingUserID != "",
+	})
+}

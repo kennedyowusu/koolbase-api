@@ -123,6 +123,7 @@ func main() {
 		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/forgot-password", authHandler.ForgotPassword)
 		r.Post("/auth/reset-password", authHandler.ResetPassword)
 			r.Post("/auth/verify-email-change", authHandler.ConfirmEmailChange)
+			r.Post("/invites/peek", inviteHandler.PeekInvite)
 			r.Post("/invites/accept", inviteHandler.ValidateInvite)
 
 		// Management routes — protected by JWT
