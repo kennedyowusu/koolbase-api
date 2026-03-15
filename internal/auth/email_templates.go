@@ -52,12 +52,12 @@ func verificationEmailHTML(verifyURL string) string {
           <a href="https://koolbase.com/terms" style="color:#6B7280;margin:0 8px;">Terms</a> •
           <a href="https://koolbase.com/privacy" style="color:#6B7280;margin:0 8px;">Privacy</a>
         </div>
-        <p style="margin:0;">© " + currentYear() + " Koolbase, Inc. All rights reserved.</p>
+        <p style="margin:0;">© %s Koolbase, Inc. All rights reserved.</p>
       </td></tr>
     </table>
   </td></tr>
 </table>
-</body></html>`, verifyURL, verifyURL, verifyURL)
+</body></html>`, verifyURL, verifyURL, verifyURL, currentYear())
 }
 
 func passwordResetEmailHTML(resetURL string) string {
@@ -120,10 +120,10 @@ func passwordResetEmailHTML(resetURL string) string {
       <a href="https://koolbase.com/terms" style="color:#475569;margin:0 10px;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#475569;margin:0 10px;">Privacy</a>
     </div>
-    <p style="margin:0;color:#334155;">© " + currentYear() + " Koolbase Inc. All rights reserved.</p>
+    <p style="margin:0;color:#334155;">© %s Koolbase Inc. All rights reserved.</p>
   </td></tr>
 </table>
-</body></html>`, resetURL, resetURL, resetURL)
+</body></html>`, resetURL, resetURL, resetURL, currentYear())
 }
 
 func welcomeEmailHTML(name, dashboardURL, docsURL string) string {
@@ -221,13 +221,13 @@ func welcomeEmailHTML(name, dashboardURL, docsURL string) string {
           <a href="https://koolbase.com/terms" style="color:#64748b;font-size:12px;margin:0 10px;">Terms</a> •
           <a href="https://koolbase.com/privacy" style="color:#64748b;font-size:12px;margin:0 10px;">Privacy</a>
         </div>
-        <p style="font-size:12px;color:#334155;margin:0;">© " + currentYear() + " Koolbase Inc. All rights reserved.</p>
+        <p style="font-size:12px;color:#334155;margin:0;">© %s Koolbase Inc. All rights reserved.</p>
         <div style="margin-top:16px;display:inline-block;padding:4px 12px;background-color:#1e293b;border-radius:99px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Powered by Koolbase</div>
       </td></tr>
     </table>
   </td></tr>
 </table>
-</body></html>`, name, dashboardURL, docsURL)
+</body></html>`, name, dashboardURL, docsURL, currentYear())
 }
 
 func newLoginEmailHTML(email, ipAddress, location, device, loginTime string) string {
@@ -319,10 +319,10 @@ func newLoginEmailHTML(email, ipAddress, location, device, loginTime string) str
       <a href="https://koolbase.com/terms" style="color:#4b5563;margin:0 10px;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#4b5563;margin:0 10px;">Privacy</a>
     </div>
-    <p style="margin:0;">© " + currentYear() + " Koolbase Inc. All rights reserved.</p>
+    <p style="margin:0;">© %s Koolbase Inc. All rights reserved.</p>
   </td></tr>
 </table>
-</body></html>`, email, ipAddress, location, device, loginTime)
+</body></html>`, email, ipAddress, location, device, loginTime, currentYear())
 }
 
 func usageLimitEmailHTML(currentUsage, limit string, upgradeURL, dashboardURL string) string {
@@ -377,13 +377,13 @@ func usageLimitEmailHTML(currentUsage, limit string, upgradeURL, dashboardURL st
           <a href="https://koolbase.com/terms" style="color:#475569;font-size:12px;margin:0 8px;">Terms</a> •
           <a href="https://koolbase.com/privacy" style="color:#475569;font-size:12px;margin:0 8px;">Privacy</a>
         </div>
-        <p style="font-size:12px;color:#334155;margin:0;">© " + currentYear() + " Koolbase Inc. All rights reserved.</p>
+        <p style="font-size:12px;color:#334155;margin:0;">© %s Koolbase Inc. All rights reserved.</p>
         <div style="margin-top:12px;display:inline-block;padding:4px 12px;background-color:#1e293b;border-radius:99px;font-size:10px;color:#475569;font-weight:700;text-transform:uppercase;">Powered by Koolbase</div>
       </td></tr>
     </table>
   </td></tr>
 </table>
-</body></html>`, currentUsage, limit, upgradeURL, dashboardURL)
+</body></html>`, currentUsage, limit, upgradeURL, dashboardURL, currentYear())
 }
 
 func paymentFailedEmailHTML(last4, updateURL, invoiceURL string) string {
@@ -443,10 +443,10 @@ func paymentFailedEmailHTML(last4, updateURL, invoiceURL string) string {
       <a href="https://koolbase.com/terms" style="color:#4b5563;margin:0 10px;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#4b5563;margin:0 10px;">Privacy</a>
     </div>
-    <p style="margin:0;">© " + currentYear() + " Koolbase Inc. All rights reserved.</p>
+    <p style="margin:0;">© %s Koolbase Inc. All rights reserved.</p>
   </td></tr>
 </table>
-</body></html>`, last4, updateURL, invoiceURL)
+</body></html>`, last4, updateURL, invoiceURL, currentYear())
 }
 
 func subscriptionCancelledEmailHTML(accessUntil, reactivateURL string) string {
@@ -503,11 +503,11 @@ func subscriptionCancelledEmailHTML(accessUntil, reactivateURL string) string {
       <a href="https://koolbase.com/terms" style="color:#4b5563;margin:0 10px;text-transform:uppercase;letter-spacing:0.05em;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#4b5563;margin:0 10px;text-transform:uppercase;letter-spacing:0.05em;">Privacy</a>
     </div>
-    <p style="margin:0;">© " + currentYear() + " Koolbase Inc. All rights reserved.</p>
+    <p style="margin:0;">© %s Koolbase Inc. All rights reserved.</p>
     <div style="margin-top:12px;display:inline-block;padding:4px 12px;background-color:#1e293b;border-radius:99px;font-size:10px;color:#475569;font-weight:700;text-transform:uppercase;border:1px solid #1f2937;">Powered by Koolbase</div>
   </td></tr>
 </table>
-</body></html>`, accessUntil, reactivateURL)
+</body></html>`, accessUntil, reactivateURL, currentYear())
 }
 
 func accountDeletedEmailHTML(email string) string {
@@ -580,10 +580,10 @@ func accountDeletedEmailHTML(email string) string {
       <a href="https://koolbase.com/terms" style="color:#475569;margin:0 10px;">Terms</a> •
       <a href="https://koolbase.com/privacy" style="color:#475569;margin:0 10px;">Privacy</a>
     </div>
-    <p style="margin:0;color:#334155;">© " + currentYear() + " Koolbase Inc. All rights reserved.</p>
+    <p style="margin:0;color:#334155;">© %s Koolbase Inc. All rights reserved.</p>
   </td></tr>
 </table>
 
 </body>
-</html>`, email)
+</html>`, email, currentYear())
 }
