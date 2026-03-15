@@ -84,6 +84,7 @@ func main() {
 	authRepo := auth.NewPostgresRepository(database)
 	authService := auth.NewService(authRepo, orgHandler, mailer, bus, appURL)
 	authHandler := auth.NewHandler(authService)
+	auth.StartCleanupJob(authRepo)
 
 	// 5 requests per minute, burst of 10
 	authLimiter := apimiddleware.NewIPRateLimiter(rate.Every(time.Minute/5), 10)

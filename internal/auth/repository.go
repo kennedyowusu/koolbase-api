@@ -29,6 +29,9 @@ type Repository interface {
 	SetPendingEmail(ctx context.Context, userID, pendingEmail string) error
 	ConfirmEmailChange(ctx context.Context, userID string) error
 	DeleteAccount(ctx context.Context, userID string) error
+	GetUserByEmailIncludeDeleted(ctx context.Context, email string) (*User, error)
+	ReactivateAccount(ctx context.Context, userID, email string) error
+	PurgeDeletedAccounts(ctx context.Context) error
 	ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error
 }
 
@@ -227,6 +230,33 @@ func (r *PostgresRepository) ConfirmEmailChange(ctx context.Context, userID stri
 }
 
 func (r *PostgresRepository) DeleteAccount(ctx context.Context, userID string) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	_, err := r.db.Exec(ctx, `UPDATE users SET deleted_at = NOW() WHERE id = $1`, userID)
+	return err
+}
+
+func (r *PostgresRepository) GetUserByEmailIncludeDeleted(ctx context.Context, email string) (*User, error) {
+	var u User
+	err := r.db.QueryRow(ctx,
+		`SELECT id, org_id, email, password_hash, role, verified, deleted_at FROM users WHERE email = $1`,
+		email,
+	).Scan(&u.ID, &u.OrgID, &u.Email, &u.PasswordHash, &u.Role, &u.Verified, &u.DeletedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *PostgresRepository) ReactivateAccount(ctx context.Context, userID, email string) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE users SET deleted_at = NULL, verified = FALSE WHERE id = $1`,
+		userID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) PurgeDeletedAccounts(ctx context.Context) error {
+	_, err := r.db.Exec(ctx,
+		`DELETE FROM users WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'`,
+	)
 	return err
 }

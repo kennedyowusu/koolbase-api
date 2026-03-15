@@ -50,9 +50,15 @@ func NewService(repo Repository, orgSvc OrgCreator, mailer email.Provider, bus *
 }
 
 func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) {
-	existing, _ := s.repo.GetUserByEmail(ctx, req.Email)
-	if existing != nil {
+	existing, _ := s.repo.GetUserByEmailIncludeDeleted(ctx, req.Email)
+	if existing != nil && existing.DeletedAt == nil {
 		return nil, ErrEmailTaken
+	}
+	if existing != nil && existing.DeletedAt != nil {
+		// Reactivate soft-deleted account
+		if err := s.repo.ReactivateAccount(ctx, existing.ID, req.Email); err != nil {
+			return nil, fmt.Errorf("reactivate account: %w", err)
+		}
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)

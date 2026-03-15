@@ -8,7 +8,8 @@ type User struct {
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
-	Verified      bool      `json:"verified"`
+	Verified      bool       `json:"verified"`
+	DeletedAt     *time.Time `json:"deleted_at,omitempty"`
 	PendingEmail  string    `json:"pending_email,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 }
