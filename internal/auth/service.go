@@ -336,3 +336,7 @@ func (s *Service) ConfirmEmailChange(ctx context.Context, token string) error {
 
 	return nil
 }
+
+func (s *Service) DeleteAccount(ctx context.Context, userID string) error {
+	return s.repo.DeleteAccount(ctx, userID)
+}

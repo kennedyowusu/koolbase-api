@@ -28,6 +28,7 @@ type Repository interface {
 	UpdateUser(ctx context.Context, userID, email string) (*User, error)
 	SetPendingEmail(ctx context.Context, userID, pendingEmail string) error
 	ConfirmEmailChange(ctx context.Context, userID string) error
+	DeleteAccount(ctx context.Context, userID string) error
 	ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error
 }
 
@@ -222,5 +223,10 @@ func (r *PostgresRepository) ConfirmEmailChange(ctx context.Context, userID stri
 		`UPDATE users SET email = pending_email, pending_email = NULL WHERE id = $1`,
 		userID,
 	)
+	return err
+}
+
+func (r *PostgresRepository) DeleteAccount(ctx context.Context, userID string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID)
 	return err
 }

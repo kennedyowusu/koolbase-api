@@ -138,3 +138,23 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
+
+func (r *Repository) Delete(ctx context.Context, projectID string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM projects WHERE id = $1`, projectID)
+	return err
+}
+
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "project_id")
+	if projectID == "" {
+		writeError(w, http.StatusBadRequest, "project_id is required")
+		return
+	}
+
+	if err := h.repo.Delete(r.Context(), projectID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete project")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

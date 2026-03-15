@@ -178,3 +178,23 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
+
+func (r *Repository) Delete(ctx context.Context, envID string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM environments WHERE id = $1`, envID)
+	return err
+}
+
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	envID := chi.URLParam(r, "env_id")
+	if envID == "" {
+		writeError(w, http.StatusBadRequest, "env_id is required")
+		return
+	}
+
+	if err := h.repo.Delete(r.Context(), envID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete environment")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

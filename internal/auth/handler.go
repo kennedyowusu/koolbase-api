@@ -271,3 +271,18 @@ func (h *Handler) ConfirmEmailChange(w http.ResponseWriter, r *http.Request) {
 
 	respond.OK(w, map[string]string{"message": "email updated successfully"})
 }
+
+func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value(middleware.UserKey).(*User)
+	if !ok || user == nil {
+		respond.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if err := h.svc.DeleteAccount(r.Context(), user.ID); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to delete account")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
