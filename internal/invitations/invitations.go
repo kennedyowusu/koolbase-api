@@ -284,3 +284,24 @@ func (h *Handler) PeekInvite(w http.ResponseWriter, r *http.Request) {
 		"existing_user": existingUserID != "",
 	})
 }
+
+func (h *Handler) RevokeInvite(w http.ResponseWriter, r *http.Request) {
+	orgID := chi.URLParam(r, "org_id")
+	inviteID := chi.URLParam(r, "invite_id")
+
+	result, err := h.db.Exec(r.Context(),
+		`DELETE FROM invitations WHERE id = $1 AND org_id = $2 AND accepted_at IS NULL`,
+		inviteID, orgID,
+	)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to revoke invitation")
+		return
+	}
+
+	if result.RowsAffected() == 0 {
+		respond.Error(w, http.StatusNotFound, "invitation not found or already accepted")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -142,6 +142,7 @@ func main() {
 					r.Delete("/organizations/{org_id}/members/{user_id}", inviteHandler.RemoveMember)
 					r.Post("/organizations/{org_id}/invites", inviteHandler.Invite)
 					r.Get("/organizations/{org_id}/invites", inviteHandler.ListInvites)
+					r.Delete("/organizations/{org_id}/invites/{invite_id}", inviteHandler.RevokeInvite)
 			r.Post("/organizations/{org_id}/projects", projectHandler.Create)
 			r.Get("/organizations/{org_id}/projects", projectHandler.List)
 			r.Post("/projects/{project_id}/environments", envHandler.Create)
