@@ -13,8 +13,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/kennedyowusu/hatchway-api/platform/email"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
+	"github.com/kennedyowusu/hatchway-api/platform/email"
 	apimiddleware "github.com/kennedyowusu/hatchway-api/platform/middleware"
 	"github.com/kennedyowusu/hatchway-api/platform/respond"
 	"github.com/rs/zerolog/log"
