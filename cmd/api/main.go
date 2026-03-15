@@ -23,6 +23,7 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/environments"
 	"github.com/kennedyowusu/hatchway-api/internal/flags"
 	organizations "github.com/kennedyowusu/hatchway-api/internal/organization"
+	"github.com/kennedyowusu/hatchway-api/internal/invitations"
 	projects "github.com/kennedyowusu/hatchway-api/internal/project"
 	"github.com/kennedyowusu/hatchway-api/internal/versions"
 
@@ -85,6 +86,7 @@ func main() {
 	authService := auth.NewService(authRepo, orgHandler, mailer, bus, appURL)
 	authHandler := auth.NewHandler(authService)
 	auth.StartCleanupJob(authRepo)
+	inviteHandler := invitations.NewHandler(database, mailer, appURL)
 
 	// 5 requests per minute, burst of 10
 	authLimiter := apimiddleware.NewIPRateLimiter(rate.Every(time.Minute/5), 10)
@@ -121,6 +123,7 @@ func main() {
 		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/forgot-password", authHandler.ForgotPassword)
 		r.Post("/auth/reset-password", authHandler.ResetPassword)
 			r.Post("/auth/verify-email-change", authHandler.ConfirmEmailChange)
+			r.Post("/invites/accept", inviteHandler.AcceptInvite)
 
 		// Management routes — protected by JWT
 		r.Group(func(r chi.Router) {
@@ -134,6 +137,10 @@ func main() {
 				r.Patch("/me", authHandler.RequestEmailChange)
 				r.Patch("/me/password", authHandler.ChangePassword)
 					r.Delete("/me", authHandler.DeleteAccount)
+					r.Get("/organizations/{org_id}/members", inviteHandler.ListMembers)
+					r.Delete("/organizations/{org_id}/members/{user_id}", inviteHandler.RemoveMember)
+					r.Post("/organizations/{org_id}/invites", inviteHandler.Invite)
+					r.Get("/organizations/{org_id}/invites", inviteHandler.ListInvites)
 			r.Post("/organizations/{org_id}/projects", projectHandler.Create)
 			r.Get("/organizations/{org_id}/projects", projectHandler.List)
 			r.Post("/projects/{project_id}/environments", envHandler.Create)
