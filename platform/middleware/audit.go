@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
+	"github.com/rs/zerolog/log"
 )
 
 func AuditLog(writer *auditlog.Writer) func(http.Handler) http.Handler {
@@ -24,7 +25,10 @@ func AuditLog(writer *auditlog.Writer) func(http.Handler) http.Handler {
 			actorID, _ := r.Context().Value(ActorIDKey).(string)
 			orgID, _ := r.Context().Value(OrgIDKey).(string)
 
+			log.Debug().Str("actor_id", actorID).Str("org_id", orgID).Str("path", r.URL.Path).Msg("audit middleware fired")
+
 			if orgID == "" {
+				log.Debug().Msg("audit middleware: org_id empty, skipping")
 				return
 			}
 
