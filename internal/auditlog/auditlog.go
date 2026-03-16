@@ -1,6 +1,7 @@
 package auditlog
 
 import (
+	"time"
 	"context"
 	"encoding/json"
 
@@ -84,14 +85,14 @@ func nullableJSON(b []byte) interface{} {
 }
 
 type Log struct {
-	ID           string  `json:"id"`
-	ActorID      *string `json:"actor_id"`
-	ActorEmail   *string `json:"actor_email"`
-	ResourceType string  `json:"resource_type"`
-	ResourceID   string  `json:"resource_id"`
-	Action       string  `json:"action"`
-	IP           *string `json:"ip"`
-	CreatedAt    string  `json:"created_at"`
+	ID           string     `json:"id"`
+	ActorID      *string    `json:"actor_id"`
+	ActorEmail   *string    `json:"actor_email"`
+	ResourceType string     `json:"resource_type"`
+	ResourceID   string     `json:"resource_id"`
+	Action       string     `json:"action"`
+	IP           *string    `json:"ip"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 func (w *Writer) List(ctx context.Context, orgID string, limit, offset int) ([]Log, int, error) {
