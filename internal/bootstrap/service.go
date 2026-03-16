@@ -31,17 +31,17 @@ func NewService(
 // GetSnapshot returns the prebuilt bootstrap snapshot for a public key.
 // Read path: public_key → environment_id → Redis snapshot → raw JSON bytes.
 // If no snapshot exists in Redis, it triggers a rebuild from Postgres.
-func (s *BootstrapService) GetSnapshot(ctx context.Context, publicKey string) ([]byte, error) {
+func (s *BootstrapService) GetSnapshot(ctx context.Context, publicKey string) ([]byte, string, error) {
 	// 1. Resolve environment
 	env, err := s.envRepo.FindByPublicKey(ctx, publicKey)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// 2. Fetch prebuilt snapshot from Redis
 	data, err := s.snapshotRepo.Get(ctx, env.ID)
 	if err == nil {
-		return data, nil
+		return data, env.ID, nil
 	}
 
 	// 3. Cache miss — rebuild snapshot from Postgres
@@ -49,11 +49,12 @@ func (s *BootstrapService) GetSnapshot(ctx context.Context, publicKey string) ([
 		log.Info().Str("env_id", env.ID).Msg("snapshot not found, rebuilding")
 
 		if buildErr := s.builder.Rebuild(ctx, env.ID); buildErr != nil {
-			return nil, buildErr
+			return nil, "", buildErr
 		}
 
-		return s.snapshotRepo.Get(ctx, env.ID)
+		snap, err := s.snapshotRepo.Get(ctx, env.ID)
+		return snap, env.ID, err
 	}
 
-	return nil, err
+	return nil, "", err
 }

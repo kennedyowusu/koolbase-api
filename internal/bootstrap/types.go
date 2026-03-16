@@ -67,3 +67,17 @@ func registerDevice(ctx context.Context, db *pgxpool.Pool, req *Request) {
 		log.Error().Err(err).Str("device_id", req.DeviceID).Msg("device registration failed")
 	}
 }
+
+// recordStat increments the daily bootstrap request count for the environment+platform.
+func recordStat(ctx context.Context, db *pgxpool.Pool, envID, platform string) {
+	_, err := db.Exec(ctx,
+		`INSERT INTO bootstrap_stats (environment_id, date, platform, request_count)
+		 VALUES ($1, CURRENT_DATE, $2, 1)
+		 ON CONFLICT (environment_id, date, platform)
+		 DO UPDATE SET request_count = bootstrap_stats.request_count + 1, updated_at = NOW()`,
+		envID, platform,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("record bootstrap stat failed")
+	}
+}

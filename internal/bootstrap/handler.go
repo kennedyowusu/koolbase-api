@@ -53,7 +53,7 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch prebuilt snapshot — raw JSON bytes
-	snapshot, err := h.service.GetSnapshot(r.Context(), publicKey)
+	snapshot, envID, err := h.service.GetSnapshot(r.Context(), publicKey)
 	if err != nil {
 		if errors.Is(err, ErrEnvironmentNotFound) {
 			writeError(w, http.StatusUnauthorized, "invalid public_key")
@@ -64,7 +64,8 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Register device async — never block the response
+	// Register device and record stats async — never block the response
+	go recordStat(context.Background(), h.db, envID, platform)
 	go registerDevice(context.Background(), h.db, &Request{
 		PublicKey:  publicKey,
 		DeviceID:   deviceID,
