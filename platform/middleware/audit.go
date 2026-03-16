@@ -26,12 +26,17 @@ func AuditLog(writer *auditlog.Writer) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Get actor ID from context without importing auth package
 			actorID := ""
+			orgID := ""
 			if v := r.Context().Value(UserKey); v != nil {
 				if u, ok := v.(userWithID); ok {
 					actorID = u.GetID()
+					orgID = u.GetOrgID()
 				}
+			}
+
+			if orgID == "" {
+				return
 			}
 
 			action, resourceType, resourceID := inferAction(r)
@@ -61,24 +66,36 @@ func inferAction(r *http.Request) (auditlog.Action, string, string) {
 		switch part {
 		case "flags":
 			resourceType = "flag"
-			if i+1 < len(parts) { resourceID = parts[i+1] }
+			if i+1 < len(parts) {
+				resourceID = parts[i+1]
+			}
 		case "configs":
 			resourceType = "config"
-			if i+1 < len(parts) { resourceID = parts[i+1] }
+			if i+1 < len(parts) {
+				resourceID = parts[i+1]
+			}
 		case "version":
 			resourceType = "version"
 		case "environments":
 			resourceType = "environment"
-			if i+1 < len(parts) { resourceID = parts[i+1] }
+			if i+1 < len(parts) {
+				resourceID = parts[i+1]
+			}
 		case "projects":
 			resourceType = "project"
-			if i+1 < len(parts) { resourceID = parts[i+1] }
+			if i+1 < len(parts) {
+				resourceID = parts[i+1]
+			}
 		case "invites":
 			resourceType = "invite"
-			if i+1 < len(parts) { resourceID = parts[i+1] }
+			if i+1 < len(parts) {
+				resourceID = parts[i+1]
+			}
 		case "members":
 			resourceType = "member"
-			if i+1 < len(parts) { resourceID = parts[i+1] }
+			if i+1 < len(parts) {
+				resourceID = parts[i+1]
+			}
 		}
 	}
 
