@@ -9,6 +9,8 @@ import (
 type contextKey string
 
 const UserKey contextKey = "user"
+const OrgIDKey contextKey = "org_id"
+const ActorIDKey contextKey = "actor_id"
 
 type SessionValidator interface {
 	ValidateSession(ctx context.Context, rawToken string) (interface{}, error)
@@ -36,6 +38,14 @@ func RequireAuth(svc interface {
 			}
 
 			ctx := context.WithValue(r.Context(), UserKey, user)
+		type userWithIDs interface {
+			GetID() string
+			GetOrgID() string
+		}
+		if u, ok := user.(userWithIDs); ok {
+			ctx = context.WithValue(ctx, ActorIDKey, u.GetID())
+			ctx = context.WithValue(ctx, OrgIDKey, u.GetOrgID())
+		}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

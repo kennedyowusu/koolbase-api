@@ -3,8 +3,9 @@ package auth
 import (
 	"context"
 	"fmt"
-	"golang.org/x/crypto/bcrypt"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

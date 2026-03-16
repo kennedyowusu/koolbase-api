@@ -7,11 +7,6 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 )
 
-type userWithID interface {
-	GetID() string
-	GetOrgID() string
-}
-
 func AuditLog(writer *auditlog.Writer) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,14 +21,8 @@ func AuditLog(writer *auditlog.Writer) func(http.Handler) http.Handler {
 				return
 			}
 
-			actorID := ""
-			orgID := ""
-			if v := r.Context().Value(UserKey); v != nil {
-				if u, ok := v.(userWithID); ok {
-					actorID = u.GetID()
-					orgID = u.GetOrgID()
-				}
-			}
+			actorID, _ := r.Context().Value(ActorIDKey).(string)
+			orgID, _ := r.Context().Value(OrgIDKey).(string)
 
 			if orgID == "" {
 				return
