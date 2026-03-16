@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -37,7 +38,7 @@ func AuditLog(writer *auditlog.Writer) func(http.Handler) http.Handler {
 				return
 			}
 
-			writer.Write(r.Context(), auditlog.Entry{
+			writer.Write(context.Background(), auditlog.Entry{
 				OrgID:        orgID,
 				ActorID:      actorID,
 				ResourceType: resourceType,
