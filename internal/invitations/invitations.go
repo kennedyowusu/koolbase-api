@@ -303,5 +303,17 @@ func (h *Handler) RevokeInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Send revoke notification email
+	var invEmail, orgName string
+	h.db.QueryRow(r.Context(), `SELECT email FROM invitations WHERE id = $1`, inviteID).Scan(&invEmail)
+	h.db.QueryRow(r.Context(), `SELECT name FROM organizations WHERE id = $1`, orgID).Scan(&orgName)
+	if invEmail != "" {
+		go h.mailer.Send(context.Background(), email.Message{
+			To:      invEmail,
+			Subject: "Your Koolbase invitation has been revoked",
+			HTML:    revokeInviteEmailHTML(orgName),
+		})
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
