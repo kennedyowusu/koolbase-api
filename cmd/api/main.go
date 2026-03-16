@@ -18,6 +18,7 @@ import (
 
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
+	"github.com/kennedyowusu/hatchway-api/internal/analytics"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
 	"github.com/kennedyowusu/hatchway-api/internal/bootstrap"
 	"github.com/kennedyowusu/hatchway-api/internal/configs"
@@ -89,6 +90,7 @@ func main() {
 	authHandler := auth.NewHandler(authService)
 	auth.StartCleanupJob(authRepo)
 	inviteHandler := invitations.NewHandler(database, mailer, appURL)
+	analyticsHandler := analytics.NewHandler(database)
 
 	// 5 requests per minute, burst of 10
 	authLimiter := apimiddleware.NewIPRateLimiter(rate.Every(time.Minute/5), 10)
@@ -146,6 +148,7 @@ func main() {
 					r.Post("/organizations/{org_id}/invites", inviteHandler.Invite)
 					r.Get("/organizations/{org_id}/invites", inviteHandler.ListInvites)
 					r.Get("/organizations/{org_id}/audit-logs", auditWriter.HandleList)
+					r.Get("/organizations/{org_id}/analytics", analyticsHandler.GetOrgStats)
 					r.Delete("/organizations/{org_id}/invites/{invite_id}", inviteHandler.RevokeInvite)
 			r.Post("/organizations/{org_id}/projects", projectHandler.Create)
 			r.Get("/organizations/{org_id}/projects", projectHandler.List)
