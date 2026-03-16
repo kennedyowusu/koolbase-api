@@ -9,6 +9,7 @@ import (
 
 type userWithID interface {
 	GetID() string
+	GetOrgID() string
 }
 
 func AuditLog(writer *auditlog.Writer) func(http.Handler) http.Handler {
@@ -39,6 +40,7 @@ func AuditLog(writer *auditlog.Writer) func(http.Handler) http.Handler {
 			}
 
 			writer.Write(r.Context(), auditlog.Entry{
+				OrgID:        orgID,
 				ActorID:      actorID,
 				ResourceType: resourceType,
 				ResourceID:   resourceID,

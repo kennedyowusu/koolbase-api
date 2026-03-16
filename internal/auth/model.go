@@ -73,3 +73,7 @@ type AuthResponse struct {
 func (u *User) GetID() string {
 	return u.ID
 }
+
+func (u *User) GetOrgID() string {
+	return u.OrgID
+}
