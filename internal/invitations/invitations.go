@@ -295,7 +295,7 @@ func (h *Handler) RevokeInvite(w http.ResponseWriter, r *http.Request) {
 	h.db.QueryRow(r.Context(), `SELECT name FROM organizations WHERE id = $1`, orgID).Scan(&orgName)
 
 	result, err := h.db.Exec(r.Context(),
-		`DELETE FROM invitations WHERE id = $1 AND org_id = $2 AND accepted_at IS NULL`,
+		`DELETE FROM invitations WHERE id = $1 AND org_id = $2`,
 		inviteID, orgID,
 	)
 	if err != nil {
