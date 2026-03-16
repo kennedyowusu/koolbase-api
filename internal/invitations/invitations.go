@@ -289,6 +289,11 @@ func (h *Handler) RevokeInvite(w http.ResponseWriter, r *http.Request) {
 	orgID := chi.URLParam(r, "org_id")
 	inviteID := chi.URLParam(r, "invite_id")
 
+	// Get email before deleting
+	var invEmail, orgName string
+	h.db.QueryRow(r.Context(), `SELECT email FROM invitations WHERE id = $1`, inviteID).Scan(&invEmail)
+	h.db.QueryRow(r.Context(), `SELECT name FROM organizations WHERE id = $1`, orgID).Scan(&orgName)
+
 	result, err := h.db.Exec(r.Context(),
 		`DELETE FROM invitations WHERE id = $1 AND org_id = $2 AND accepted_at IS NULL`,
 		inviteID, orgID,
@@ -302,11 +307,6 @@ func (h *Handler) RevokeInvite(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusNotFound, "invitation not found or already accepted")
 		return
 	}
-
-	// Send revoke notification email
-	var invEmail, orgName string
-	h.db.QueryRow(r.Context(), `SELECT email FROM invitations WHERE id = $1`, inviteID).Scan(&invEmail)
-	h.db.QueryRow(r.Context(), `SELECT name FROM organizations WHERE id = $1`, orgID).Scan(&orgName)
 	if invEmail != "" {
 		go h.mailer.Send(context.Background(), email.Message{
 			To:      invEmail,

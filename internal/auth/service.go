@@ -97,7 +97,7 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 		var invOrgID, invRole string
 		err := s.repo.GetInviteOrgAndRole(ctx, tokenHash, &invOrgID, &invRole)
 		if err != nil {
-			return nil, fmt.Errorf("invalid invite token: %w", err)
+			return nil, ErrTokenInvalid
 		}
 		orgID = invOrgID
 		userRole = invRole

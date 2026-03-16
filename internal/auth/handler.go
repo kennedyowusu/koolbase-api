@@ -43,6 +43,10 @@ func (h *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 			respond.Error(w, http.StatusConflict, "email already in use")
 			return
 		}
+		if errors.Is(err, ErrTokenInvalid) {
+			respond.Error(w, http.StatusBadRequest, "this invitation has been revoked or expired")
+			return
+		}
 		respond.Error(w, http.StatusInternalServerError, "signup failed")
 		return
 	}
