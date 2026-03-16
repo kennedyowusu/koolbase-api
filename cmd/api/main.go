@@ -17,13 +17,14 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
+	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
 	"github.com/kennedyowusu/hatchway-api/internal/bootstrap"
 	"github.com/kennedyowusu/hatchway-api/internal/configs"
 	"github.com/kennedyowusu/hatchway-api/internal/environments"
 	"github.com/kennedyowusu/hatchway-api/internal/flags"
-	organizations "github.com/kennedyowusu/hatchway-api/internal/organization"
 	"github.com/kennedyowusu/hatchway-api/internal/invitations"
+	organizations "github.com/kennedyowusu/hatchway-api/internal/organization"
 	projects "github.com/kennedyowusu/hatchway-api/internal/project"
 	"github.com/kennedyowusu/hatchway-api/internal/versions"
 
@@ -76,6 +77,7 @@ func main() {
 	bootstrapHandler := bootstrap.NewHandler(database, rdb)
 	adminHandler := admin.NewHandler(database, rdb)
 	orgHandler := organizations.NewHandler(database)
+	auditWriter := auditlog.NewWriter(database)
 	projectHandler := projects.NewHandler(database)
 	envHandler := environments.NewHandler(database, rdb)
 	flagHandler := flags.NewHandler(database, bus)
@@ -129,6 +131,7 @@ func main() {
 		// Management routes — protected by JWT
 		r.Group(func(r chi.Router) {
 			r.Use(apimiddleware.RequireAuth(authService))
+					r.Use(apimiddleware.AuditLog(auditWriter))
 
 			r.Post("/organizations", orgHandler.Create)
 			r.Get("/organizations", orgHandler.List)
@@ -142,6 +145,7 @@ func main() {
 					r.Delete("/organizations/{org_id}/members/{user_id}", inviteHandler.RemoveMember)
 					r.Post("/organizations/{org_id}/invites", inviteHandler.Invite)
 					r.Get("/organizations/{org_id}/invites", inviteHandler.ListInvites)
+					r.Get("/organizations/{org_id}/audit-logs", auditWriter.HandleList)
 					r.Delete("/organizations/{org_id}/invites/{invite_id}", inviteHandler.RevokeInvite)
 			r.Post("/organizations/{org_id}/projects", projectHandler.Create)
 			r.Get("/organizations/{org_id}/projects", projectHandler.List)

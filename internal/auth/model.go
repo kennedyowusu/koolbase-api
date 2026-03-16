@@ -69,3 +69,7 @@ type AuthResponse struct {
 	AccessToken string `json:"access_token"`
 	User        *User  `json:"user"`
 }
+
+func (u *User) GetID() string {
+	return u.ID
+}
