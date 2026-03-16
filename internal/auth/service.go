@@ -55,6 +55,19 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 		return nil, ErrEmailTaken
 	}
 	if existing != nil && existing.DeletedAt != nil {
+		var orgID, userRole string
+		// Validate invite token if provided before reactivating
+		if req.InviteToken != "" {
+			tokenHash := hashToken(req.InviteToken)
+			var invOrgID, invRole string
+			if err := s.repo.GetInviteOrgAndRole(ctx, tokenHash, &invOrgID, &invRole); err != nil {
+				return nil, ErrTokenInvalid
+			}
+			orgID = invOrgID
+			userRole = invRole
+		}
+		_ = orgID
+		_ = userRole
 		// Reactivate soft-deleted account with new password
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)
 		if err != nil {
