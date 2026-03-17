@@ -79,3 +79,10 @@ CREATE TABLE project_auth_events (
 );
 CREATE INDEX idx_project_auth_events_project_id ON project_auth_events(project_id);
 CREATE INDEX idx_project_auth_events_user_id ON project_auth_events(user_id);
+
+-- Performance indexes (partial indexes for active tokens)
+CREATE INDEX idx_active_access_tokens ON project_sessions (access_token_hash) WHERE access_expires_at > NOW();
+CREATE INDEX idx_active_refresh_tokens ON project_sessions (refresh_token_hash) WHERE refresh_expires_at > NOW();
+CREATE INDEX idx_active_email_verifications ON project_email_verifications (token_hash) WHERE used_at IS NULL;
+CREATE INDEX idx_active_password_resets ON project_password_resets (token_hash) WHERE used_at IS NULL;
+CREATE INDEX idx_project_users_created_at ON project_users (project_id, created_at DESC);

@@ -222,3 +222,9 @@ func nullStr(s string) interface{} {
 	}
 	return s
 }
+
+func (r *Repository) DeleteSessionByRefreshToken(ctx context.Context, tokenHash string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM project_sessions WHERE refresh_token_hash = $1`, tokenHash)
+	return err
+}
+

@@ -19,6 +19,7 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 	"github.com/kennedyowusu/hatchway-api/internal/analytics"
+	"github.com/kennedyowusu/hatchway-api/internal/projectauth"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
 	"github.com/kennedyowusu/hatchway-api/internal/bootstrap"
 	"github.com/kennedyowusu/hatchway-api/internal/configs"
@@ -91,6 +92,14 @@ func main() {
 	auth.StartCleanupJob(authRepo)
 	inviteHandler := invitations.NewHandler(database, mailer, appURL)
 	analyticsHandler := analytics.NewHandler(database)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal().Msg("JWT_SECRET is required")
+	}
+	projAuthRepo := projectauth.NewRepository(database)
+	projAuthMailer := projectauth.NewMailerAdapter(mailer)
+	projAuthSvc := projectauth.NewService(projAuthRepo, projAuthMailer, jwtSecret, appURL)
+	projAuthHandler := projectauth.NewHandler(projAuthSvc, projAuthRepo)
 
 	// 5 requests per minute, burst of 10
 	authLimiter := apimiddleware.NewIPRateLimiter(rate.Every(time.Minute/5), 10)
@@ -129,6 +138,15 @@ func main() {
 			r.Post("/auth/verify-email-change", authHandler.ConfirmEmailChange)
 			r.Post("/invites/peek", inviteHandler.PeekInvite)
 			r.Post("/invites/accept", inviteHandler.ValidateInvite)
+			r.Post("/sdk/auth/register", projAuthHandler.Register)
+			r.Post("/sdk/auth/login", projAuthHandler.Login)
+			r.Post("/sdk/auth/refresh", projAuthHandler.Refresh)
+			r.Post("/sdk/auth/logout", projAuthHandler.Logout)
+			r.Post("/sdk/auth/verify-email", projAuthHandler.VerifyEmail)
+			r.Post("/sdk/auth/password-reset", projAuthHandler.ForgotPassword)
+			r.Post("/sdk/auth/password-reset/confirm", projAuthHandler.ResetPassword)
+			r.Get("/sdk/auth/me", projAuthHandler.GetMe)
+			r.Patch("/sdk/auth/me", projAuthHandler.UpdateMe)
 
 		// Management routes — protected by JWT
 		r.Group(func(r chi.Router) {
