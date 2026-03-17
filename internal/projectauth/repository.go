@@ -228,3 +228,65 @@ func (r *Repository) DeleteSessionByRefreshToken(ctx context.Context, tokenHash 
 	return err
 }
 
+
+func (r *Repository) ListUsers(ctx context.Context, projectID string, limit, offset int) ([]User, int, error) {
+	var total int
+	if err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM project_users WHERE project_id = $1`, projectID,
+	).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := r.db.Query(ctx,
+		`SELECT id, project_id, email, full_name, avatar_url, verified, disabled, last_login_at, created_at, updated_at
+		 FROM project_users WHERE project_id = $1
+		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		projectID, limit, offset,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	users := []User{}
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.ProjectID, &u.Email, &u.FullName, &u.AvatarURL, &u.Verified, &u.Disabled, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+func (r *Repository) SetUserDisabled(ctx context.Context, projectID, userID string, disabled bool) error {
+	res, err := r.db.Exec(ctx,
+		`UPDATE project_users SET disabled = $1, updated_at = NOW()
+		 WHERE id = $2 AND project_id = $3`,
+		disabled, userID, projectID,
+	)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *Repository) DeleteUser(ctx context.Context, projectID, userID string) error {
+	res, err := r.db.Exec(ctx,
+		`DELETE FROM project_users WHERE id = $1 AND project_id = $2`,
+		userID, projectID,
+	)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
