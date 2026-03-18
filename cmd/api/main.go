@@ -17,9 +17,8 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
-	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 	"github.com/kennedyowusu/hatchway-api/internal/analytics"
-	"github.com/kennedyowusu/hatchway-api/internal/projectauth"
+	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
 	"github.com/kennedyowusu/hatchway-api/internal/bootstrap"
 	"github.com/kennedyowusu/hatchway-api/internal/configs"
@@ -28,6 +27,8 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/invitations"
 	organizations "github.com/kennedyowusu/hatchway-api/internal/organization"
 	projects "github.com/kennedyowusu/hatchway-api/internal/project"
+	"github.com/kennedyowusu/hatchway-api/internal/projectauth"
+	"github.com/kennedyowusu/hatchway-api/internal/storage"
 	"github.com/kennedyowusu/hatchway-api/internal/versions"
 
 	"github.com/kennedyowusu/hatchway-api/platform/cache"
@@ -92,6 +93,17 @@ func main() {
 	auth.StartCleanupJob(authRepo)
 	inviteHandler := invitations.NewHandler(database, mailer, appURL)
 	analyticsHandler := analytics.NewHandler(database)
+
+	// Storage
+	r2AccountID := os.Getenv("R2_ACCOUNT_ID")
+	r2AccessKey := os.Getenv("R2_ACCESS_KEY_ID")
+	r2SecretKey := os.Getenv("R2_SECRET_ACCESS_KEY")
+	r2Bucket := os.Getenv("R2_BUCKET")
+	r2PublicURL := os.Getenv("R2_PUBLIC_URL")
+	r2Client := storage.NewR2Client(r2AccountID, r2AccessKey, r2SecretKey, r2Bucket, r2PublicURL)
+	storageRepo := storage.NewRepository(database)
+	storageSvc := storage.NewService(storageRepo, r2Client)
+	storageHandler := storage.NewHandler(storageSvc, storageRepo)
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		log.Fatal().Msg("JWT_SECRET is required")
@@ -137,6 +149,10 @@ func main() {
 		r.Post("/auth/reset-password", authHandler.ResetPassword)
 			r.Post("/auth/verify-email-change", authHandler.ConfirmEmailChange)
 			r.Post("/invites/peek", inviteHandler.PeekInvite)
+			r.Post("/sdk/storage/upload-url", storageHandler.GetUploadURL)
+			r.Post("/sdk/storage/confirm", storageHandler.ConfirmUpload)
+			r.Get("/sdk/storage/download-url", storageHandler.GetDownloadURL)
+			r.Delete("/sdk/storage/object", storageHandler.DeleteObject)
 			r.Post("/invites/accept", inviteHandler.ValidateInvite)
 			r.Post("/sdk/auth/register", projAuthHandler.Register)
 			r.Post("/sdk/auth/login", projAuthHandler.Login)
@@ -168,6 +184,10 @@ func main() {
 					r.Get("/organizations/{org_id}/audit-logs", auditWriter.HandleList)
 					r.Get("/organizations/{org_id}/analytics", analyticsHandler.GetOrgStats)
 					r.Get("/projects/{project_id}/users", projAuthHandler.ListProjectUsers)
+					r.Get("/projects/{project_id}/buckets", storageHandler.ListBuckets)
+					r.Post("/projects/{project_id}/buckets", storageHandler.CreateBucket)
+					r.Delete("/projects/{project_id}/buckets/{bucket_name}", storageHandler.DeleteBucket)
+					r.Get("/projects/{project_id}/buckets/{bucket_name}/objects", storageHandler.ListObjects)
 					r.Patch("/projects/{project_id}/users/{user_id}/disable", projAuthHandler.DisableProjectUser)
 					r.Patch("/projects/{project_id}/users/{user_id}/enable", projAuthHandler.EnableProjectUser)
 					r.Delete("/projects/{project_id}/users/{user_id}", projAuthHandler.DeleteProjectUser)
