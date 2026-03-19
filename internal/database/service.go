@@ -3,14 +3,17 @@ package database
 import (
 	"context"
 	"errors"
+
+	"github.com/kennedyowusu/hatchway-api/internal/realtime"
 )
 
 type Service struct {
 	repo *Repository
+	hub  *realtime.Hub
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, hub *realtime.Hub) *Service {
+	return &Service{repo: repo, hub: hub}
 }
 
 // Collection permission rules

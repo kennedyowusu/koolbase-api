@@ -19,6 +19,7 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
 	"github.com/kennedyowusu/hatchway-api/internal/analytics"
 	kbdb "github.com/kennedyowusu/hatchway-api/internal/database"
+	"github.com/kennedyowusu/hatchway-api/internal/realtime"
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
 	"github.com/kennedyowusu/hatchway-api/internal/bootstrap"
@@ -94,9 +95,16 @@ func main() {
 	auth.StartCleanupJob(authRepo)
 	inviteHandler := invitations.NewHandler(database, mailer, appURL)
 	analyticsHandler := analytics.NewHandler(database)
+	// Realtime hub
+	realtimeHub := realtime.NewHub()
+	go realtimeHub.Run()
+	realtimeAuthorizer := realtime.NewDBAuthorizer(database)
+
 	dbRepo := kbdb.NewRepository(database)
-	dbSvc := kbdb.NewService(dbRepo)
+	dbSvc := kbdb.NewService(dbRepo, realtimeHub)
 	dbHandler := kbdb.NewHandler(dbSvc, dbRepo)
+
+	realtimeHandler := realtime.NewHandler(realtimeHub, realtimeAuthorizer, authService)
 
 	// Storage
 	r2AccountID := os.Getenv("R2_ACCOUNT_ID")
@@ -153,6 +161,7 @@ func main() {
 		r.Post("/auth/reset-password", authHandler.ResetPassword)
 			r.Post("/auth/verify-email-change", authHandler.ConfirmEmailChange)
 			r.Post("/invites/peek", inviteHandler.PeekInvite)
+			r.Get("/realtime/ws", realtimeHandler.ServeWS)
 			r.Post("/sdk/storage/upload-url", storageHandler.GetUploadURL)
 			r.Post("/sdk/db/insert", dbHandler.SDKInsert)
 			r.Post("/sdk/db/query", dbHandler.SDKQuery)
