@@ -18,6 +18,7 @@ import (
 
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
 	"github.com/kennedyowusu/hatchway-api/internal/analytics"
+	kbdb "github.com/kennedyowusu/hatchway-api/internal/database"
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
 	"github.com/kennedyowusu/hatchway-api/internal/bootstrap"
@@ -93,6 +94,9 @@ func main() {
 	auth.StartCleanupJob(authRepo)
 	inviteHandler := invitations.NewHandler(database, mailer, appURL)
 	analyticsHandler := analytics.NewHandler(database)
+	dbRepo := kbdb.NewRepository(database)
+	dbSvc := kbdb.NewService(dbRepo)
+	dbHandler := kbdb.NewHandler(dbSvc, dbRepo)
 
 	// Storage
 	r2AccountID := os.Getenv("R2_ACCOUNT_ID")
@@ -150,6 +154,11 @@ func main() {
 			r.Post("/auth/verify-email-change", authHandler.ConfirmEmailChange)
 			r.Post("/invites/peek", inviteHandler.PeekInvite)
 			r.Post("/sdk/storage/upload-url", storageHandler.GetUploadURL)
+			r.Post("/sdk/db/insert", dbHandler.SDKInsert)
+			r.Post("/sdk/db/query", dbHandler.SDKQuery)
+			r.Get("/sdk/db/records/{record_id}", dbHandler.SDKGet)
+			r.Patch("/sdk/db/records/{record_id}", dbHandler.SDKUpdate)
+			r.Delete("/sdk/db/records/{record_id}", dbHandler.SDKDelete)
 			r.Post("/sdk/storage/confirm", storageHandler.ConfirmUpload)
 			r.Get("/sdk/storage/download-url", storageHandler.GetDownloadURL)
 			r.Delete("/sdk/storage/object", storageHandler.DeleteObject)
@@ -185,6 +194,10 @@ func main() {
 					r.Get("/organizations/{org_id}/analytics", analyticsHandler.GetOrgStats)
 					r.Get("/projects/{project_id}/users", projAuthHandler.ListProjectUsers)
 					r.Get("/projects/{project_id}/buckets", storageHandler.ListBuckets)
+					r.Get("/projects/{project_id}/collections", dbHandler.ListCollections)
+					r.Post("/projects/{project_id}/collections", dbHandler.CreateCollection)
+					r.Delete("/projects/{project_id}/collections/{collection_name}", dbHandler.DeleteCollection)
+					r.Get("/projects/{project_id}/collections/{collection_name}/records", dbHandler.ListRecordsDashboard)
 					r.Post("/projects/{project_id}/buckets", storageHandler.CreateBucket)
 					r.Delete("/projects/{project_id}/buckets/{bucket_name}", storageHandler.DeleteBucket)
 					r.Get("/projects/{project_id}/buckets/{bucket_name}/objects", storageHandler.ListObjects)
