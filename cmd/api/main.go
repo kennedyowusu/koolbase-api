@@ -215,6 +215,7 @@ func main() {
 					r.Patch("/projects/{project_id}/users/{user_id}/enable", projAuthHandler.EnableProjectUser)
 					r.Delete("/projects/{project_id}/users/{user_id}", projAuthHandler.DeleteProjectUser)
 					r.Post("/environments/{env_id}/rotate/{key_type}", envHandler.RotateKey)
+					r.Post("/environments/{env_id}/duplicate", envHandler.Duplicate)
 					r.Delete("/organizations/{org_id}/invites/{invite_id}", inviteHandler.RevokeInvite)
 			r.Post("/organizations/{org_id}/projects", projectHandler.Create)
 			r.Get("/organizations/{org_id}/projects", projectHandler.List)

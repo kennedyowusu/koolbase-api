@@ -273,3 +273,142 @@ func (h *Handler) RotateKey(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, env)
 }
+
+func (h *Handler) Duplicate(w http.ResponseWriter, r *http.Request) {
+	sourceEnvID := chi.URLParam(r, "env_id")
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	// Fetch source environment to get project_id
+	var projectID string
+	err := h.repo.db.QueryRow(r.Context(),
+		`SELECT project_id FROM environments WHERE id = $1`, sourceEnvID,
+	).Scan(&projectID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "source environment not found")
+		return
+	}
+
+	// Generate keys for new environment
+	slug := toSlug(body.Name)
+	publicKey, err := generateKey("public", body.Name)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate public key")
+		return
+	}
+	secretKey, err := generateKey("secret", body.Name)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate secret key")
+		return
+	}
+
+	// Create the new environment
+	newEnv, err := h.repo.Create(r.Context(), projectID, body.Name, slug, publicKey, secretKey)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create environment")
+		return
+	}
+
+	// Copy feature flags
+	rows, err := h.repo.db.Query(r.Context(),
+		`SELECT key, enabled, rollout_percentage, kill_switch, description
+		 FROM feature_flags WHERE environment_id = $1`, sourceEnvID,
+	)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var key, description string
+			var enabled, killSwitch bool
+			var rollout int
+			if err := rows.Scan(&key, &enabled, &rollout, &killSwitch, &description); err != nil {
+				continue
+			}
+			var newFlagID string
+			h.repo.db.QueryRow(r.Context(),
+				`INSERT INTO feature_flags (environment_id, key, enabled, rollout_percentage, kill_switch, description)
+				 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+				newEnv.ID, key, enabled, rollout, killSwitch, description,
+			).Scan(&newFlagID)
+
+			// Copy flag rules
+			if newFlagID != "" {
+				ruleRows, err := h.repo.db.Query(r.Context(),
+					`SELECT type, config, priority FROM flag_rules WHERE flag_id IN (
+						SELECT id FROM feature_flags WHERE environment_id = $1 AND key = $2
+					)`, sourceEnvID, key,
+				)
+				if err == nil {
+					defer ruleRows.Close()
+					for ruleRows.Next() {
+						var ruleType string
+						var config []byte
+						var priority int
+						if err := ruleRows.Scan(&ruleType, &config, &priority); err != nil {
+							continue
+						}
+						h.repo.db.Exec(r.Context(),
+							`INSERT INTO flag_rules (flag_id, type, config, priority) VALUES ($1, $2, $3, $4)`,
+							newFlagID, ruleType, config, priority,
+						)
+					}
+				}
+			}
+		}
+	}
+
+	// Copy remote configs
+	configRows, err := h.repo.db.Query(r.Context(),
+		`SELECT key, value, description FROM remote_configs WHERE environment_id = $1`, sourceEnvID,
+	)
+	if err == nil {
+		defer configRows.Close()
+		for configRows.Next() {
+			var key, description string
+			var value []byte
+			if err := configRows.Scan(&key, &value, &description); err != nil {
+				continue
+			}
+			h.repo.db.Exec(r.Context(),
+				`INSERT INTO remote_configs (environment_id, key, value, description) VALUES ($1, $2, $3, $4)`,
+				newEnv.ID, key, value, description,
+			)
+		}
+	}
+
+	// Copy version policies
+	policyRows, err := h.repo.db.Query(r.Context(),
+		`SELECT platform, min_version, latest_version, force_update, update_message, store_url
+		 FROM version_policies WHERE environment_id = $1`, sourceEnvID,
+	)
+	if err == nil {
+		defer policyRows.Close()
+		for policyRows.Next() {
+			var platform, minVersion, updateMessage string
+			var latestVersion, storeURL *string
+			var forceUpdate bool
+			if err := policyRows.Scan(&platform, &minVersion, &latestVersion, &forceUpdate, &updateMessage, &storeURL); err != nil {
+				continue
+			}
+			h.repo.db.Exec(r.Context(),
+				`INSERT INTO version_policies (environment_id, platform, min_version, latest_version, force_update, update_message, store_url)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				newEnv.ID, platform, minVersion, latestVersion, forceUpdate, updateMessage, storeURL,
+			)
+		}
+	}
+
+	// Trigger snapshot rebuild for new environment
+	go func() {
+		if err := h.builder.Rebuild(context.Background(), newEnv.ID); err != nil {
+			log.Error().Err(err).Str("env_id", newEnv.ID).Msg("snapshot build failed after duplication")
+		}
+	}()
+
+	writeJSON(w, http.StatusCreated, newEnv)
+}
