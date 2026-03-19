@@ -198,3 +198,78 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (r *Repository) RotatePublicKey(ctx context.Context, envID, newKey string) (*Environment, error) {
+	var env Environment
+	err := r.db.QueryRow(ctx,
+		`UPDATE environments SET public_key = $1, updated_at = NOW()
+		 WHERE id = $2
+		 RETURNING id, project_id, name, slug, public_key, secret_key, created_at, updated_at`,
+		newKey, envID,
+	).Scan(&env.ID, &env.ProjectID, &env.Name, &env.Slug, &env.PublicKey, &env.SecretKey, &env.CreatedAt, &env.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &env, nil
+}
+
+func (r *Repository) RotateSecretKey(ctx context.Context, envID, newKey string) (*Environment, error) {
+	var env Environment
+	err := r.db.QueryRow(ctx,
+		`UPDATE environments SET secret_key = $1, updated_at = NOW()
+		 WHERE id = $2
+		 RETURNING id, project_id, name, slug, public_key, secret_key, created_at, updated_at`,
+		newKey, envID,
+	).Scan(&env.ID, &env.ProjectID, &env.Name, &env.Slug, &env.PublicKey, &env.SecretKey, &env.CreatedAt, &env.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &env, nil
+}
+
+func (h *Handler) RotateKey(w http.ResponseWriter, r *http.Request) {
+	envID := chi.URLParam(r, "env_id")
+	keyType := chi.URLParam(r, "key_type") // "public" or "secret"
+
+	if keyType != "public" && keyType != "secret" {
+		writeError(w, http.StatusBadRequest, "key_type must be public or secret")
+		return
+	}
+
+	// Get environment to determine name for prefix
+	envs, err := h.repo.db.Query(r.Context(),
+		`SELECT name FROM environments WHERE id = $1`, envID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to fetch environment")
+		return
+	}
+	defer envs.Close()
+
+	var envName string
+	if envs.Next() {
+		envs.Scan(&envName)
+	} else {
+		writeError(w, http.StatusNotFound, "environment not found")
+		return
+	}
+	envs.Close()
+
+	newKey, err := generateKey(keyType, envName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate key")
+		return
+	}
+
+	var env *Environment
+	if keyType == "public" {
+		env, err = h.repo.RotatePublicKey(r.Context(), envID, newKey)
+	} else {
+		env, err = h.repo.RotateSecretKey(r.Context(), envID, newKey)
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to rotate key")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, env)
+}
