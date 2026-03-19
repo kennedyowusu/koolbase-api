@@ -188,6 +188,7 @@ func main() {
 					r.Post("/projects/{project_id}/buckets", storageHandler.CreateBucket)
 					r.Delete("/projects/{project_id}/buckets/{bucket_name}", storageHandler.DeleteBucket)
 					r.Get("/projects/{project_id}/buckets/{bucket_name}/objects", storageHandler.ListObjects)
+						r.Delete("/projects/{project_id}/buckets/{bucket_name}/objects", storageHandler.DeleteDashboardObject)
 					r.Patch("/projects/{project_id}/users/{user_id}/disable", projAuthHandler.DisableProjectUser)
 					r.Patch("/projects/{project_id}/users/{user_id}/enable", projAuthHandler.EnableProjectUser)
 					r.Delete("/projects/{project_id}/users/{user_id}", projAuthHandler.DeleteProjectUser)

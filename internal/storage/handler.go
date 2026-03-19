@@ -258,3 +258,26 @@ func (h *Handler) DeleteObject(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *Handler) DeleteDashboardObject(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "project_id")
+	bucketName := chi.URLParam(r, "bucket_name")
+
+	if !h.authorizeProject(r, projectID) {
+		respond.Error(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	var req DeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Path == "" {
+		respond.Error(w, http.StatusBadRequest, "path is required")
+		return
+	}
+	req.Bucket = bucketName
+
+	if err := h.svc.DeleteObject(r.Context(), projectID, req.Bucket, req.Path); err != nil {
+		respond.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
