@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"encoding/json"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -272,4 +274,171 @@ func (r *Repository) DeleteTrigger(ctx context.Context, projectID, triggerID str
 		return ErrTriggerNotFound
 	}
 	return nil
+}
+
+// Retry queue
+
+func (r *Repository) EnqueueRetry(ctx context.Context, projectID, functionName, eventType, collection, apiKey, lastError string, payload map[string]interface{}) error {
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.Exec(ctx,
+		`INSERT INTO function_retry_queue
+		 (project_id, function_name, event_type, collection, payload, api_key, attempt, next_retry_at, last_error)
+		 VALUES ($1, $2, $3, $4, $5, $6, 0, NOW(), $7)`,
+		projectID, functionName, eventType, collection, payloadJSON, apiKey, lastError,
+	)
+	return err
+}
+
+type RetryJob struct {
+	ID           string
+	ProjectID    string
+	FunctionName string
+	EventType    string
+	Collection   string
+	Payload      map[string]interface{}
+	APIKey       string
+	Attempt      int
+	MaxAttempts  int
+	LastError    string
+}
+
+func (r *Repository) GetDueRetries(ctx context.Context) ([]RetryJob, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT id, project_id, function_name, event_type, collection, payload, api_key, attempt, max_attempts, last_error
+		 FROM function_retry_queue
+		 WHERE next_retry_at <= NOW() AND attempt < max_attempts
+		 ORDER BY next_retry_at ASC
+		 LIMIT 50`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	jobs := []RetryJob{}
+	for rows.Next() {
+		var j RetryJob
+		var payloadJSON []byte
+		var lastError *string
+		if err := rows.Scan(&j.ID, &j.ProjectID, &j.FunctionName, &j.EventType, &j.Collection,
+			&payloadJSON, &j.APIKey, &j.Attempt, &j.MaxAttempts, &lastError); err != nil {
+			return nil, err
+		}
+		if lastError != nil {
+			j.LastError = *lastError
+		}
+		json.Unmarshal(payloadJSON, &j.Payload)
+		jobs = append(jobs, j)
+	}
+	return jobs, rows.Err()
+}
+
+func (r *Repository) MarkRetrySuccess(ctx context.Context, id string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM function_retry_queue WHERE id = $1`, id)
+	return err
+}
+
+func (r *Repository) MarkRetryFailed(ctx context.Context, id string, attempt int, lastError string, nextRetryAt time.Time) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE function_retry_queue
+		 SET attempt = $1, last_error = $2, next_retry_at = $3
+		 WHERE id = $4`,
+		attempt, lastError, nextRetryAt, id,
+	)
+	return err
+}
+
+func (r *Repository) MoveToDeadLetter(ctx context.Context, job RetryJob) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	payloadJSON, _ := json.Marshal(job.Payload)
+	_, err = tx.Exec(ctx,
+		`INSERT INTO function_dead_letters
+		 (project_id, function_name, event_type, collection, payload, attempts, last_error)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		job.ProjectID, job.FunctionName, job.EventType, job.Collection,
+		payloadJSON, job.Attempt, job.LastError,
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `DELETE FROM function_retry_queue WHERE id = $1`, job.ID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// Dead letters
+
+type DeadLetter struct {
+	ID           string                 `json:"id"`
+	ProjectID    string                 `json:"project_id"`
+	FunctionName string                 `json:"function_name"`
+	EventType    string                 `json:"event_type"`
+	Collection   string                 `json:"collection"`
+	Payload      map[string]interface{} `json:"payload"`
+	Attempts     int                    `json:"attempts"`
+	LastError    string                 `json:"last_error"`
+	FailedAt     time.Time              `json:"failed_at"`
+}
+
+func (r *Repository) ListDeadLetters(ctx context.Context, projectID string, limit int) ([]DeadLetter, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT id, project_id, function_name, event_type, collection, payload, attempts, last_error, failed_at
+		 FROM function_dead_letters
+		 WHERE project_id = $1
+		 ORDER BY failed_at DESC LIMIT $2`,
+		projectID, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	letters := []DeadLetter{}
+	for rows.Next() {
+		var d DeadLetter
+		var payloadJSON []byte
+		if err := rows.Scan(&d.ID, &d.ProjectID, &d.FunctionName, &d.EventType,
+			&d.Collection, &payloadJSON, &d.Attempts, &d.LastError, &d.FailedAt); err != nil {
+			return nil, err
+		}
+		json.Unmarshal(payloadJSON, &d.Payload)
+		letters = append(letters, d)
+	}
+	return letters, rows.Err()
+}
+
+func (r *Repository) DeleteDeadLetter(ctx context.Context, projectID, id string) error {
+	_, err := r.db.Exec(ctx,
+		`DELETE FROM function_dead_letters WHERE id = $1 AND project_id = $2`,
+		id, projectID,
+	)
+	return err
+}
+
+func (r *Repository) ReplayDeadLetter(ctx context.Context, projectID, id string) (*DeadLetter, error) {
+	var d DeadLetter
+	var payloadJSON []byte
+	err := r.db.QueryRow(ctx,
+		`SELECT id, project_id, function_name, event_type, collection, payload, attempts, last_error, failed_at
+		 FROM function_dead_letters WHERE id = $1 AND project_id = $2`,
+		id, projectID,
+	).Scan(&d.ID, &d.ProjectID, &d.FunctionName, &d.EventType,
+		&d.Collection, &payloadJSON, &d.Attempts, &d.LastError, &d.FailedAt)
+	if err != nil {
+		return nil, err
+	}
+	json.Unmarshal(payloadJSON, &d.Payload)
+	return &d, nil
 }

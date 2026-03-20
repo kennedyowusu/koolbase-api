@@ -146,6 +146,9 @@ func (s *Service) executeTriggerAsync(projectID, functionName, apiKey, eventType
 	fn, err := s.repo.GetActiveFunction(ctx, projectID, functionName)
 	if err != nil {
 		fmt.Printf("[functions] trigger: function %s not found for project %s\n", functionName, projectID)
+		// Enqueue for retry — function may be temporarily unavailable
+		s.repo.EnqueueRetry(ctx, projectID, functionName, eventType, collection, apiKey,
+			"function not found: "+err.Error(), payload)
 		return
 	}
 
@@ -165,7 +168,6 @@ func (s *Service) executeTriggerAsync(projectID, functionName, apiKey, eventType
 
 	result := Execute(fn, input)
 
-	// Fix 4 — observability
 	fmt.Printf("[functions] trigger %s v%d event=%s status=%d duration=%dms\n",
 		fn.Name, fn.Version, eventType, result.Status, result.DurationMs)
 
@@ -199,6 +201,16 @@ func (s *Service) executeTriggerAsync(projectID, functionName, apiKey, eventType
 		Output:          outputPtr,
 		Error:           errorPtr,
 	})
+
+	// If execution failed, enqueue for retry
+	if result.Status != 200 {
+		lastError := result.Error
+		if lastError == "" {
+			lastError = fmt.Sprintf("execution failed with status %d", result.Status)
+		}
+		fmt.Printf("[functions] trigger failed — enqueuing retry for %s\n", functionName)
+		s.repo.EnqueueRetry(ctx, projectID, functionName, eventType, collection, apiKey, lastError, payload)
+	}
 }
 
 func (s *Service) ListFunctions(ctx context.Context, projectID string) ([]Function, error) {

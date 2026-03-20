@@ -228,3 +228,69 @@ func (h *Handler) SDKInvoke(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(res.Status)
 	json.NewEncoder(w).Encode(res.Body)
 }
+
+// DLQ endpoints
+
+func (h *Handler) ListDeadLetters(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "project_id")
+	if !h.authorizeProject(r, projectID) {
+		respond.Error(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	limit := 50
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+
+	letters, err := h.repo.ListDeadLetters(r.Context(), projectID, limit)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to list dead letters")
+		return
+	}
+	respond.OK(w, letters)
+}
+
+func (h *Handler) DeleteDeadLetter(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "project_id")
+	id := chi.URLParam(r, "id")
+	if !h.authorizeProject(r, projectID) {
+		respond.Error(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	if err := h.repo.DeleteDeadLetter(r.Context(), projectID, id); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to delete dead letter")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) ReplayDeadLetter(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "project_id")
+	id := chi.URLParam(r, "id")
+	if !h.authorizeProject(r, projectID) {
+		respond.Error(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	dl, err := h.repo.ReplayDeadLetter(r.Context(), projectID, id)
+	if err != nil {
+		respond.Error(w, http.StatusNotFound, "dead letter not found")
+		return
+	}
+
+	// Re-enqueue as a fresh retry
+	if err := h.repo.EnqueueRetry(r.Context(), projectID, dl.FunctionName,
+		dl.EventType, dl.Collection, "", "replayed from DLQ", dl.Payload); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to enqueue replay")
+		return
+	}
+
+	// Remove from dead letters
+	h.repo.DeleteDeadLetter(r.Context(), projectID, id)
+
+	respond.OK(w, map[string]string{"status": "replayed"})
+}

@@ -109,6 +109,12 @@ func main() {
 	dbHandler := kbdb.NewHandler(dbSvc, dbRepo)
 	fnHandler := functions.NewHandler(fnSvc, fnRepo)
 
+	// Start retry worker with cancellable context
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	defer workerCancel()
+	fnWorker := functions.NewWorker(fnRepo, fnSvc)
+	go fnWorker.Start(workerCtx)
+
 	realtimeHandler := realtime.NewHandler(realtimeHub, realtimeAuthorizer, authService)
 
 	// Functions
@@ -219,6 +225,9 @@ func main() {
 					r.Get("/projects/{project_id}/triggers", fnHandler.ListTriggers)
 					r.Post("/projects/{project_id}/triggers", fnHandler.CreateTrigger)
 					r.Delete("/projects/{project_id}/triggers/{trigger_id}", fnHandler.DeleteTrigger)
+					r.Get("/projects/{project_id}/dead-letters", fnHandler.ListDeadLetters)
+					r.Delete("/projects/{project_id}/dead-letters/{id}", fnHandler.DeleteDeadLetter)
+					r.Post("/projects/{project_id}/dead-letters/{id}/replay", fnHandler.ReplayDeadLetter)
 					r.Post("/projects/{project_id}/collections", dbHandler.CreateCollection)
 					r.Delete("/projects/{project_id}/collections/{collection_name}", dbHandler.DeleteCollection)
 					r.Get("/projects/{project_id}/collections/{collection_name}/records", dbHandler.ListRecordsDashboard)
