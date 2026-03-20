@@ -4,16 +4,18 @@ import (
 	"context"
 	"errors"
 
+	"github.com/kennedyowusu/hatchway-api/internal/functions"
 	"github.com/kennedyowusu/hatchway-api/internal/realtime"
 )
 
 type Service struct {
-	repo *Repository
-	hub  *realtime.Hub
+	repo  *Repository
+	hub   *realtime.Hub
+	fnSvc *functions.Service
 }
 
-func NewService(repo *Repository, hub *realtime.Hub) *Service {
-	return &Service{repo: repo, hub: hub}
+func NewService(repo *Repository, hub *realtime.Hub, fnSvc *functions.Service) *Service {
+	return &Service{repo: repo, hub: hub, fnSvc: fnSvc}
 }
 
 // Collection permission rules
@@ -88,7 +90,17 @@ func (s *Service) Insert(ctx context.Context, projectID, userID string, req Inse
 		createdBy = &userID
 	}
 
-	return s.repo.InsertRecord(ctx, projectID, col.ID, createdBy, req.Data)
+	rec, err := s.repo.InsertRecord(ctx, projectID, col.ID, createdBy, req.Data)
+	if err != nil {
+		return nil, err
+	}
+	if s.hub != nil {
+		s.hub.PublishRecordCreated(projectID, col.Name, rec)
+	}
+	if s.fnSvc != nil {
+		s.fireTriggers(ctx, projectID, "db.record.created", col.Name, map[string]interface{}{"record": rec})
+	}
+	return rec, nil
 }
 
 func (s *Service) Get(ctx context.Context, projectID, userID, recordID string) (*Record, error) {
@@ -165,7 +177,21 @@ func (s *Service) Update(ctx context.Context, projectID, userID, recordID string
 		}
 	}
 
-	return s.repo.UpdateRecord(ctx, projectID, recordID, req.Data)
+	updated, err := s.repo.UpdateRecord(ctx, projectID, recordID, req.Data)
+	if err != nil {
+		return nil, err
+	}
+	colName := ""
+	if col, err2 := s.repo.GetCollectionByID(ctx, updated.CollectionID); err2 == nil {
+		colName = col.Name
+	}
+	if s.hub != nil {
+		s.hub.PublishRecordUpdated(projectID, colName, updated)
+	}
+	if s.fnSvc != nil && colName != "" {
+		s.fireTriggers(ctx, projectID, "db.record.updated", colName, map[string]interface{}{"record": updated})
+	}
+	return updated, nil
 }
 
 func (s *Service) Delete(ctx context.Context, projectID, userID, recordID string) error {
@@ -183,7 +209,20 @@ func (s *Service) Delete(ctx context.Context, projectID, userID, recordID string
 		}
 	}
 
-	return s.repo.DeleteRecord(ctx, projectID, recordID)
+	colName := ""
+	if col != nil {
+		colName = col.Name
+	}
+	if err := s.repo.DeleteRecord(ctx, projectID, recordID); err != nil {
+		return err
+	}
+	if s.hub != nil {
+		s.hub.PublishRecordDeleted(projectID, colName, recordID)
+	}
+	if s.fnSvc != nil && colName != "" {
+		s.fireTriggers(ctx, projectID, "db.record.deleted", colName, map[string]interface{}{"record_id": recordID})
+	}
+	return nil
 }
 
 // Permission helpers
@@ -235,4 +274,14 @@ func validateCollectionName(name string) error {
 		}
 	}
 	return nil
+}
+
+func (s *Service) fireTriggers(ctx context.Context, projectID, eventType, collection string, payload map[string]interface{}) {
+	triggers, err := s.fnSvc.GetTriggersForEvent(ctx, projectID, eventType, collection)
+	if err != nil || len(triggers) == 0 {
+		return
+	}
+	for _, t := range triggers {
+		s.fnSvc.InvokeForTrigger(ctx, projectID, t.FunctionName, "", eventType, collection, payload)
+	}
 }

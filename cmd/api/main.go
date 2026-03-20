@@ -19,6 +19,7 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
 	"github.com/kennedyowusu/hatchway-api/internal/analytics"
 	kbdb "github.com/kennedyowusu/hatchway-api/internal/database"
+	"github.com/kennedyowusu/hatchway-api/internal/functions"
 	"github.com/kennedyowusu/hatchway-api/internal/realtime"
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
@@ -100,11 +101,17 @@ func main() {
 	go realtimeHub.Run()
 	realtimeAuthorizer := realtime.NewDBAuthorizer(database)
 
+	fnRepo := functions.NewRepository(database)
+	fnSvc := functions.NewService(fnRepo)
+
 	dbRepo := kbdb.NewRepository(database)
-	dbSvc := kbdb.NewService(dbRepo, realtimeHub)
+	dbSvc := kbdb.NewService(dbRepo, realtimeHub, fnSvc)
 	dbHandler := kbdb.NewHandler(dbSvc, dbRepo)
+	fnHandler := functions.NewHandler(fnSvc, fnRepo)
 
 	realtimeHandler := realtime.NewHandler(realtimeHub, realtimeAuthorizer, authService)
+
+	// Functions
 
 	// Storage
 	r2AccountID := os.Getenv("R2_ACCOUNT_ID")
@@ -163,6 +170,7 @@ func main() {
 			r.Post("/invites/peek", inviteHandler.PeekInvite)
 			r.Get("/realtime/ws", realtimeHandler.ServeWS)
 			r.Post("/sdk/storage/upload-url", storageHandler.GetUploadURL)
+			r.Post("/sdk/functions/{function_name}", fnHandler.SDKInvoke)
 			r.Post("/sdk/db/insert", dbHandler.SDKInsert)
 			r.Post("/sdk/db/query", dbHandler.SDKQuery)
 			r.Get("/sdk/db/records/{record_id}", dbHandler.SDKGet)
@@ -204,6 +212,13 @@ func main() {
 					r.Get("/projects/{project_id}/users", projAuthHandler.ListProjectUsers)
 					r.Get("/projects/{project_id}/buckets", storageHandler.ListBuckets)
 					r.Get("/projects/{project_id}/collections", dbHandler.ListCollections)
+					r.Get("/projects/{project_id}/functions", fnHandler.ListFunctions)
+					r.Post("/projects/{project_id}/functions", fnHandler.DeployFunction)
+					r.Delete("/projects/{project_id}/functions/{function_name}", fnHandler.DeleteFunction)
+					r.Get("/projects/{project_id}/functions/logs", fnHandler.ListLogs)
+					r.Get("/projects/{project_id}/triggers", fnHandler.ListTriggers)
+					r.Post("/projects/{project_id}/triggers", fnHandler.CreateTrigger)
+					r.Delete("/projects/{project_id}/triggers/{trigger_id}", fnHandler.DeleteTrigger)
 					r.Post("/projects/{project_id}/collections", dbHandler.CreateCollection)
 					r.Delete("/projects/{project_id}/collections/{collection_name}", dbHandler.DeleteCollection)
 					r.Get("/projects/{project_id}/collections/{collection_name}/records", dbHandler.ListRecordsDashboard)
