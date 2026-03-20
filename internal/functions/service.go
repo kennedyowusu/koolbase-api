@@ -75,7 +75,8 @@ func (s *Service) Invoke(ctx context.Context, projectID, name, apiKey string, re
 		reqBody["payload"] = req.Payload
 	}
 	input := ExecutionInput{
-		Request: reqBody,
+		Request:  reqBody,
+		TestMode: req.Test,
 		Env: map[string]string{},
 		DB: DBContext{
 			ProjectID: projectID,

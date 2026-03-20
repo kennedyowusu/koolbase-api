@@ -21,9 +21,10 @@ func denoPath() string {
 const functionsDir = "/var/koolbase/functions"
 
 type ExecutionInput struct {
-	Request map[string]interface{} `json:"request"`
-	Env     map[string]string      `json:"env"`
-	DB      DBContext               `json:"db"`
+	Request  map[string]interface{} `json:"request"`
+	Env      map[string]string      `json:"env"`
+	DB       DBContext               `json:"db"`
+	TestMode bool                   `json:"test_mode"`
 }
 
 type DBContext struct {
@@ -62,42 +63,52 @@ func buildWrapper(userCode string) string {
 // ── Koolbase Function Runtime ──────────────────────────────────────
 const __ctxRaw = Deno.env.get("__KOOLBASE_CTX") ?? "{}";
 const __ctxData = JSON.parse(__ctxRaw);
+const __testMode = __ctxData.test_mode === true;
+
+const __realDB = {
+  insert: async (collection, data) => {
+    const res = await fetch(__ctxData.db.base_url + "/v1/sdk/db/insert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": __ctxData.db.api_key },
+      body: JSON.stringify({ collection, data }),
+    });
+    return res.json();
+  },
+  find: async (collection, filters = {}, limit = 20) => {
+    const res = await fetch(__ctxData.db.base_url + "/v1/sdk/db/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": __ctxData.db.api_key },
+      body: JSON.stringify({ collection, filters, limit }),
+    });
+    return res.json();
+  },
+  update: async (id, data) => {
+    const res = await fetch(__ctxData.db.base_url + "/v1/sdk/db/records/" + id, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-api-key": __ctxData.db.api_key },
+      body: JSON.stringify({ data }),
+    });
+    return res.json();
+  },
+  delete: async (id) => {
+    await fetch(__ctxData.db.base_url + "/v1/sdk/db/records/" + id, {
+      method: "DELETE",
+      headers: { "x-api-key": __ctxData.db.api_key },
+    });
+  },
+};
+
+const __mockDB = {
+  insert: async (collection, data) => ({ __test: true, simulated: "insert", collection, data }),
+  find: async (collection, filters, limit) => ({ __test: true, simulated: "find", collection, records: [] }),
+  update: async (id, data) => ({ __test: true, simulated: "update", id, data }),
+  delete: async (id) => ({ __test: true, simulated: "delete", id }),
+};
 
 const ctx = {
   request: __ctxData.request ?? {},
   env: __ctxData.env ?? {},
-  db: {
-    insert: async (collection, data) => {
-      const res = await fetch(__ctxData.db.base_url + "/v1/sdk/db/insert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": __ctxData.db.api_key },
-        body: JSON.stringify({ collection, data }),
-      });
-      return res.json();
-    },
-    find: async (collection, filters = {}, limit = 20) => {
-      const res = await fetch(__ctxData.db.base_url + "/v1/sdk/db/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": __ctxData.db.api_key },
-        body: JSON.stringify({ collection, filters, limit }),
-      });
-      return res.json();
-    },
-    update: async (id, data) => {
-      const res = await fetch(__ctxData.db.base_url + "/v1/sdk/db/records/" + id, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-api-key": __ctxData.db.api_key },
-        body: JSON.stringify({ data }),
-      });
-      return res.json();
-    },
-    delete: async (id) => {
-      await fetch(__ctxData.db.base_url + "/v1/sdk/db/records/" + id, {
-        method: "DELETE",
-        headers: { "x-api-key": __ctxData.db.api_key },
-      });
-    },
-  },
+  db: __testMode ? __mockDB : __realDB,
 };
 // ── End Runtime ────────────────────────────────────────────────────
 
@@ -120,12 +131,30 @@ func Execute(fn *Function, input ExecutionInput) *ExecutionResult {
 	start := time.Now()
 	result := &ExecutionResult{}
 
-	filePath := FunctionFilePath(fn)
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		result.Error = "function file not found — redeploy required"
-		result.Status = 500
-		result.DurationMs = int(time.Since(start).Milliseconds())
-		return result
+	var filePath string
+	if input.TestMode {
+		// Write temp file with mock DB for test execution
+		tmpDir := filepath.Join(functionsDir, fn.ProjectID, fn.Name, fmt.Sprintf("v%d-test", fn.Version))
+		if err := os.MkdirAll(tmpDir, 0755); err != nil {
+			result.Error = "failed to create test dir: " + err.Error()
+			result.Status = 500
+			return result
+		}
+		tmpPath := filepath.Join(tmpDir, "index.ts")
+		if err := os.WriteFile(tmpPath, []byte(buildWrapper(fn.Code)), 0644); err != nil {
+			result.Error = "failed to write test file: " + err.Error()
+			result.Status = 500
+			return result
+		}
+		filePath = tmpPath
+	} else {
+		filePath = FunctionFilePath(fn)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			result.Error = "function file not found — redeploy required"
+			result.Status = 500
+			result.DurationMs = int(time.Since(start).Milliseconds())
+			return result
+		}
 	}
 
 	ctxJSON, err := json.Marshal(input)
