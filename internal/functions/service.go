@@ -65,11 +65,17 @@ func (s *Service) Invoke(ctx context.Context, projectID, name, apiKey string, re
 		return nil, fmt.Errorf("failed to get function: %w", err)
 	}
 
+	reqBody := map[string]interface{}{
+		"body":    req.Body,
+		"headers": req.Headers,
+	}
+	if req.Test && req.Payload != nil {
+		reqBody["event"] = req.Event
+		reqBody["collection"] = req.Collection
+		reqBody["payload"] = req.Payload
+	}
 	input := ExecutionInput{
-		Request: map[string]interface{}{
-			"body":    req.Body,
-			"headers": req.Headers,
-		},
+		Request: reqBody,
 		Env: map[string]string{},
 		DB: DBContext{
 			ProjectID: projectID,

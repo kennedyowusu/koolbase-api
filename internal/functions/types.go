@@ -50,8 +50,12 @@ type DeployRequest struct {
 }
 
 type InvokeRequest struct {
-	Body    map[string]interface{} `json:"body"`
-	Headers map[string]string      `json:"headers"`
+	Body       map[string]interface{} `json:"body"`
+	Headers    map[string]string      `json:"headers"`
+	Test       bool                   `json:"test"`
+	Event      string                 `json:"event"`
+	Collection string                 `json:"collection"`
+	Payload    map[string]interface{} `json:"payload"`
 }
 
 type InvokeResponse struct {
