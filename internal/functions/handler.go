@@ -69,6 +69,10 @@ func (h *Handler) DeployFunction(w http.ResponseWriter, r *http.Request) {
 
 	var req DeployRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if strings.Contains(err.Error(), "http: request body too large") {
+			respond.Error(w, http.StatusRequestEntityTooLarge, "function code too large: maximum 1MB")
+			return
+		}
 		respond.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -198,6 +202,10 @@ func (h *Handler) SDKInvoke(w http.ResponseWriter, r *http.Request) {
 	var req InvokeRequest
 	if r.ContentLength > 0 {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			if strings.Contains(err.Error(), "http: request body too large") {
+				respond.Error(w, http.StatusRequestEntityTooLarge, "payload too large: maximum 1MB")
+				return
+			}
 			respond.Error(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
