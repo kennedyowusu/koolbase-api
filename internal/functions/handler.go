@@ -302,3 +302,71 @@ func (h *Handler) ReplayDeadLetter(w http.ResponseWriter, r *http.Request) {
 
 	respond.OK(w, map[string]string{"status": "replayed"})
 }
+
+// Secrets endpoints
+
+func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "project_id")
+	if !h.authorizeProject(r, projectID) {
+		respond.Error(w, http.StatusForbidden, "access denied")
+		return
+	}
+	secrets, err := h.repo.ListSecrets(r.Context(), projectID)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to list secrets")
+		return
+	}
+	respond.OK(w, secrets)
+}
+
+func (h *Handler) UpsertSecret(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, 64*1024)
+
+	projectID := chi.URLParam(r, "project_id")
+	if !h.authorizeProject(r, projectID) {
+		respond.Error(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	var req UpsertSecretRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respond.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" || req.Value == "" {
+		respond.Error(w, http.StatusBadRequest, "name and value are required")
+		return
+	}
+	if len(req.Name) > 64 {
+		respond.Error(w, http.StatusBadRequest, "secret name too long")
+		return
+	}
+
+	encrypted, err := Encrypt(req.Value)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to encrypt secret")
+		return
+	}
+
+	secret, err := h.repo.UpsertSecret(r.Context(), projectID, req.Name, encrypted)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to save secret")
+		return
+	}
+	respond.OK(w, secret)
+}
+
+func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "project_id")
+	name := chi.URLParam(r, "secret_name")
+	if !h.authorizeProject(r, projectID) {
+		respond.Error(w, http.StatusForbidden, "access denied")
+		return
+	}
+	if err := h.repo.DeleteSecret(r.Context(), projectID, name); err != nil {
+		respond.Error(w, http.StatusNotFound, "secret not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

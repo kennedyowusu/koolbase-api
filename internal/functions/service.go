@@ -74,9 +74,20 @@ func (s *Service) Invoke(ctx context.Context, projectID, name, apiKey string, re
 		reqBody["collection"] = req.Collection
 		reqBody["payload"] = req.Payload
 	}
+	// Load decrypted secrets for this project
+	secretMap := map[string]string{}
+	if encSecrets, err := s.repo.GetSecretValues(ctx, projectID); err == nil {
+		for k, v := range encSecrets {
+			if decrypted, err := Decrypt(v); err == nil {
+				secretMap[k] = decrypted
+			}
+		}
+	}
+
 	input := ExecutionInput{
 		Request:  reqBody,
 		TestMode: req.Test,
+		Secrets:  secretMap,
 		Env: map[string]string{},
 		DB: DBContext{
 			ProjectID: projectID,
@@ -152,13 +163,24 @@ func (s *Service) executeTriggerAsync(projectID, functionName, apiKey, eventType
 		return
 	}
 
+	// Load decrypted secrets for this project
+	triggerSecrets := map[string]string{}
+	if encSecrets, err := s.repo.GetSecretValues(ctx, projectID); err == nil {
+		for k, v := range encSecrets {
+			if decrypted, err := Decrypt(v); err == nil {
+				triggerSecrets[k] = decrypted
+			}
+		}
+	}
+
 	input := ExecutionInput{
 		Request: map[string]interface{}{
 			"event":      eventType,
 			"collection": collection,
 			"payload":    payload,
 		},
-		Env: map[string]string{},
+		Env:     map[string]string{},
+		Secrets: triggerSecrets,
 		DB: DBContext{
 			ProjectID: projectID,
 			APIKey:    apiKey,

@@ -25,6 +25,7 @@ type ExecutionInput struct {
 	Env      map[string]string      `json:"env"`
 	DB       DBContext               `json:"db"`
 	TestMode bool                   `json:"test_mode"`
+	Secrets  map[string]string      `json:"secrets"`
 }
 
 type DBContext struct {
@@ -181,12 +182,16 @@ func Execute(fn *Function, input ExecutionInput) *ExecutionResult {
 		"--quiet",
 		"--no-prompt",
 		allowNet,
-		"--allow-env=__KOOLBASE_CTX",
+		"--allow-env",  // allow all env vars including injected secrets
 		"--deny-read",
 		"--deny-write",
 		filePath,
 	)
-	cmd.Env = append([]string{fmt.Sprintf("__KOOLBASE_CTX=%s", ctxJSON)}, os.Environ()...)
+	envVars := []string{fmt.Sprintf("__KOOLBASE_CTX=%s", ctxJSON)}
+	for k, v := range input.Secrets {
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
+	}
+	cmd.Env = envVars
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

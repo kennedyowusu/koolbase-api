@@ -442,3 +442,77 @@ func (r *Repository) ReplayDeadLetter(ctx context.Context, projectID, id string)
 	json.Unmarshal(payloadJSON, &d.Payload)
 	return &d, nil
 }
+
+// Secrets
+
+func (r *Repository) UpsertSecret(ctx context.Context, projectID, name, encryptedValue string) (*Secret, error) {
+	var s Secret
+	err := r.db.QueryRow(ctx,
+		`INSERT INTO project_secrets (project_id, name, value)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (project_id, name) DO UPDATE SET value = $3, updated_at = NOW()
+		 RETURNING id, project_id, name, created_at, updated_at`,
+		projectID, name, encryptedValue,
+	).Scan(&s.ID, &s.ProjectID, &s.Name, &s.CreatedAt, &s.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *Repository) ListSecrets(ctx context.Context, projectID string) ([]Secret, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT id, project_id, name, created_at, updated_at
+		 FROM project_secrets WHERE project_id = $1 ORDER BY name ASC`,
+		projectID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	secrets := []Secret{}
+	for rows.Next() {
+		var s Secret
+		if err := rows.Scan(&s.ID, &s.ProjectID, &s.Name, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			return nil, err
+		}
+		secrets = append(secrets, s)
+	}
+	return secrets, rows.Err()
+}
+
+func (r *Repository) GetSecretValues(ctx context.Context, projectID string) (map[string]string, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT name, value FROM project_secrets WHERE project_id = $1`,
+		projectID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	secrets := map[string]string{}
+	for rows.Next() {
+		var name, value string
+		if err := rows.Scan(&name, &value); err != nil {
+			return nil, err
+		}
+		secrets[name] = value
+	}
+	return secrets, rows.Err()
+}
+
+func (r *Repository) DeleteSecret(ctx context.Context, projectID, name string) error {
+	res, err := r.db.Exec(ctx,
+		`DELETE FROM project_secrets WHERE project_id = $1 AND name = $2`,
+		projectID, name,
+	)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return errors.New("secret not found")
+	}
+	return nil
+}

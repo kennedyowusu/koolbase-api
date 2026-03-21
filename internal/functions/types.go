@@ -69,3 +69,16 @@ type CreateTriggerRequest struct {
 	EventType    string `json:"event_type"`
 	Collection   string `json:"collection"`
 }
+
+type Secret struct {
+	ID        string `json:"id"`
+	ProjectID string `json:"project_id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+type UpsertSecretRequest struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
