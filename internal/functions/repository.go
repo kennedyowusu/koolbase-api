@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"encoding/json"
+	"math"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -515,4 +516,62 @@ func (r *Repository) DeleteSecret(ctx context.Context, projectID, name string) e
 		return errors.New("secret not found")
 	}
 	return nil
+}
+
+// Trigger observability
+
+type TriggerStat struct {
+	FunctionName string  `json:"function_name"`
+	EventType    string  `json:"event_type"`
+	Collection   string  `json:"collection"`
+	Total        int     `json:"total"`
+	Successes    int     `json:"successes"`
+	Failures     int     `json:"failures"`
+	Timeouts     int     `json:"timeouts"`
+	SuccessRate  float64 `json:"success_rate"`
+	FailureRate  float64 `json:"failure_rate"`
+}
+
+func (r *Repository) GetTriggerStats(ctx context.Context, projectID string) ([]TriggerStat, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT
+			function_name,
+			event_type,
+			collection,
+			COUNT(*) as total,
+			COUNT(*) FILTER (WHERE status = 'success') as successes,
+			COUNT(*) FILTER (WHERE status = 'error') as failures,
+			COUNT(*) FILTER (WHERE status = 'timeout') as timeouts
+		FROM function_logs
+		WHERE project_id = $1
+			AND trigger_type = 'db'
+			AND created_at >= NOW() - INTERVAL '24 hours'
+			AND event_type IS NOT NULL
+			AND collection IS NOT NULL
+			AND function_name IS NOT NULL
+		GROUP BY function_name, event_type, collection
+		ORDER BY total DESC`,
+		projectID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := []TriggerStat{}
+	for rows.Next() {
+		var s TriggerStat
+		if err := rows.Scan(
+			&s.FunctionName, &s.EventType, &s.Collection,
+			&s.Total, &s.Successes, &s.Failures, &s.Timeouts,
+		); err != nil {
+			return nil, err
+		}
+		if s.Total > 0 {
+			s.SuccessRate = math.Round((float64(s.Successes)/float64(s.Total))*100*100) / 100
+			s.FailureRate = math.Round((float64(s.Failures)/float64(s.Total))*100*100) / 100
+		}
+		stats = append(stats, s)
+	}
+	return stats, rows.Err()
 }

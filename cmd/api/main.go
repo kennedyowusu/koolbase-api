@@ -223,6 +223,7 @@ func main() {
 					r.Delete("/projects/{project_id}/functions/{function_name}", fnHandler.DeleteFunction)
 					r.Get("/projects/{project_id}/functions/logs", fnHandler.ListLogs)
 					r.Get("/projects/{project_id}/triggers", fnHandler.ListTriggers)
+					r.Get("/projects/{project_id}/trigger-stats", fnHandler.GetTriggerStats)
 					r.Post("/projects/{project_id}/triggers", fnHandler.CreateTrigger)
 					r.Delete("/projects/{project_id}/triggers/{trigger_id}", fnHandler.DeleteTrigger)
 					r.Get("/projects/{project_id}/dead-letters", fnHandler.ListDeadLetters)

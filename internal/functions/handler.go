@@ -370,3 +370,20 @@ func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// Trigger observability
+
+func (h *Handler) GetTriggerStats(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "project_id")
+	if !h.authorizeProject(r, projectID) {
+		respond.Error(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	stats, err := h.repo.GetTriggerStats(r.Context(), projectID)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to get trigger stats")
+		return
+	}
+	respond.OK(w, stats)
+}
