@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -73,4 +74,15 @@ func (r *R2Client) ObjectExists(ctx context.Context, key string) bool {
 
 func (r *R2Client) StorageKey(projectID, bucketName, path string) string {
 	return fmt.Sprintf("%s/%s/%s", projectID, bucketName, path)
+}
+
+func (r *R2Client) PutObject(ctx context.Context, key, contentType string, body io.Reader, size int64) error {
+	_, err := r.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(r.bucket),
+		Key:           aws.String(key),
+		ContentType:   aws.String(contentType),
+		Body:          body,
+		ContentLength: aws.Int64(size),
+	})
+	return err
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/analytics"
 	kbdb "github.com/kennedyowusu/hatchway-api/internal/database"
 	"github.com/kennedyowusu/hatchway-api/internal/billing"
+	"github.com/kennedyowusu/hatchway-api/internal/ota"
 	"github.com/kennedyowusu/hatchway-api/internal/functions"
 	"github.com/kennedyowusu/hatchway-api/internal/realtime"
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
@@ -131,6 +132,8 @@ func main() {
 	r2Client := storage.NewR2Client(r2AccountID, r2AccessKey, r2SecretKey, r2Bucket, r2PublicURL)
 	storageRepo := storage.NewRepository(database)
 	storageSvc := storage.NewService(storageRepo, r2Client)
+	otaRepo := ota.NewRepository(database)
+	otaHandler := ota.NewHandler(otaRepo, r2Client)
 	storageHandler := storage.NewHandler(storageSvc, storageRepo)
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
@@ -186,6 +189,7 @@ func main() {
 			r.Patch("/sdk/db/records/{record_id}", dbHandler.SDKUpdate)
 			r.Delete("/sdk/db/records/{record_id}", dbHandler.SDKDelete)
 			r.Post("/sdk/storage/confirm", storageHandler.ConfirmUpload)
+				r.Get("/sdk/ota/check", otaHandler.SDKCheck)
 			r.Get("/sdk/storage/download-url", storageHandler.GetDownloadURL)
 			r.Delete("/sdk/storage/object", storageHandler.DeleteObject)
 			r.Post("/invites/accept", inviteHandler.ValidateInvite)
@@ -232,6 +236,13 @@ func main() {
 					r.Get("/projects/{project_id}/dead-letters", fnHandler.ListDeadLetters)
 					r.Get("/projects/{project_id}/secrets", fnHandler.ListSecrets)
 					r.Get("/orgs/{org_id}/usage", billingHandler.GetUsage)
+
+					// OTA
+					r.Post("/projects/{project_id}/ota/upload", otaHandler.Upload)
+					r.Get("/projects/{project_id}/ota/bundles", otaHandler.List)
+					r.Post("/projects/{project_id}/ota/bundles/{bundle_id}/activate", otaHandler.Activate)
+					r.Patch("/projects/{project_id}/ota/bundles/{bundle_id}", otaHandler.UpdateMandatory)
+					r.Delete("/projects/{project_id}/ota/bundles/{bundle_id}", otaHandler.Delete)
 					r.Post("/projects/{project_id}/secrets", fnHandler.UpsertSecret)
 					r.Delete("/projects/{project_id}/secrets/{secret_name}", fnHandler.DeleteSecret)
 					r.Delete("/projects/{project_id}/dead-letters/{id}", fnHandler.DeleteDeadLetter)
