@@ -19,6 +19,7 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
 	"github.com/kennedyowusu/hatchway-api/internal/analytics"
 	kbdb "github.com/kennedyowusu/hatchway-api/internal/database"
+	"github.com/kennedyowusu/hatchway-api/internal/billing"
 	"github.com/kennedyowusu/hatchway-api/internal/functions"
 	"github.com/kennedyowusu/hatchway-api/internal/realtime"
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
@@ -108,6 +109,8 @@ func main() {
 	dbSvc := kbdb.NewService(dbRepo, realtimeHub, fnSvc)
 	dbHandler := kbdb.NewHandler(dbSvc, dbRepo)
 	fnHandler := functions.NewHandler(fnSvc, fnRepo)
+	billingRepo := billing.NewRepository(database)
+	billingHandler := billing.NewHandler(billingRepo)
 
 	// Start retry worker with cancellable context
 	workerCtx, workerCancel := context.WithCancel(context.Background())
@@ -228,6 +231,7 @@ func main() {
 					r.Delete("/projects/{project_id}/triggers/{trigger_id}", fnHandler.DeleteTrigger)
 					r.Get("/projects/{project_id}/dead-letters", fnHandler.ListDeadLetters)
 					r.Get("/projects/{project_id}/secrets", fnHandler.ListSecrets)
+					r.Get("/orgs/{org_id}/usage", billingHandler.GetUsage)
 					r.Post("/projects/{project_id}/secrets", fnHandler.UpsertSecret)
 					r.Delete("/projects/{project_id}/secrets/{secret_name}", fnHandler.DeleteSecret)
 					r.Delete("/projects/{project_id}/dead-letters/{id}", fnHandler.DeleteDeadLetter)
