@@ -18,21 +18,21 @@ import (
 
 	"github.com/kennedyowusu/hatchway-api/internal/admin"
 	"github.com/kennedyowusu/hatchway-api/internal/analytics"
-	kbdb "github.com/kennedyowusu/hatchway-api/internal/database"
-	"github.com/kennedyowusu/hatchway-api/internal/billing"
-	"github.com/kennedyowusu/hatchway-api/internal/ota"
-	"github.com/kennedyowusu/hatchway-api/internal/functions"
-	"github.com/kennedyowusu/hatchway-api/internal/realtime"
 	"github.com/kennedyowusu/hatchway-api/internal/auditlog"
 	"github.com/kennedyowusu/hatchway-api/internal/auth"
+	"github.com/kennedyowusu/hatchway-api/internal/billing"
 	"github.com/kennedyowusu/hatchway-api/internal/bootstrap"
 	"github.com/kennedyowusu/hatchway-api/internal/configs"
+	kbdb "github.com/kennedyowusu/hatchway-api/internal/database"
 	"github.com/kennedyowusu/hatchway-api/internal/environments"
 	"github.com/kennedyowusu/hatchway-api/internal/flags"
+	"github.com/kennedyowusu/hatchway-api/internal/functions"
 	"github.com/kennedyowusu/hatchway-api/internal/invitations"
 	organizations "github.com/kennedyowusu/hatchway-api/internal/organization"
+	"github.com/kennedyowusu/hatchway-api/internal/ota"
 	projects "github.com/kennedyowusu/hatchway-api/internal/project"
 	"github.com/kennedyowusu/hatchway-api/internal/projectauth"
+	"github.com/kennedyowusu/hatchway-api/internal/realtime"
 	"github.com/kennedyowusu/hatchway-api/internal/storage"
 	"github.com/kennedyowusu/hatchway-api/internal/versions"
 
@@ -118,6 +118,9 @@ func main() {
 	defer workerCancel()
 	fnWorker := functions.NewWorker(fnRepo, fnSvc)
 	go fnWorker.Start(workerCtx)
+
+	alertChecker := billing.NewAlertChecker(database, billingRepo, mailer, appURL)
+	go alertChecker.Run(workerCtx)
 
 	realtimeHandler := realtime.NewHandler(realtimeHub, realtimeAuthorizer, authService)
 
