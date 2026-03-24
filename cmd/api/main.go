@@ -181,6 +181,7 @@ func main() {
 		r.Post("/auth/verify-email", authHandler.VerifyEmail)
 		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/forgot-password", authHandler.ForgotPassword)
 		r.Post("/auth/reset-password", authHandler.ResetPassword)
+		r.Post("/auth/oauth", authHandler.OAuthLogin)
 			r.Post("/auth/verify-email-change", authHandler.ConfirmEmailChange)
 			r.Post("/invites/peek", inviteHandler.PeekInvite)
 			r.Get("/realtime/ws", realtimeHandler.ServeWS)

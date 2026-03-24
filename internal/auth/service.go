@@ -408,3 +408,40 @@ func (s *Service) DeleteAccount(ctx context.Context, userID string) error {
 	})
 	return nil
 }
+
+func (s *Service) OAuthLogin(ctx context.Context, provider, providerID, email, name, avatarURL string) (*AuthResponse, error) {
+	// Check if user already exists
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		// User doesn't exist — create org + user
+		orgName := name
+		if orgName == "" {
+			orgName = email
+		}
+		orgID, err := s.orgSvc.CreateOrg(ctx, orgName+"'s Org")
+		if err != nil {
+			return nil, fmt.Errorf("create org: %w", err)
+		}
+		user, err = s.repo.CreateUser(ctx, orgID, email, "", "owner")
+		if err != nil {
+			return nil, fmt.Errorf("create user: %w", err)
+		}
+		// Mark as verified since OAuth is pre-verified
+		if err := s.repo.MarkEmailVerified(ctx, user.ID); err != nil {
+			return nil, fmt.Errorf("mark verified: %w", err)
+		}
+		user.Verified = true
+	}
+
+	// Create session
+	plainToken, tokenHash, err := generateToken()
+	if err != nil {
+		return nil, fmt.Errorf("generate session token: %w", err)
+	}
+	_, err = s.repo.CreateSession(ctx, user.ID, tokenHash, time.Now().Add(sessionTTL), "oauth", provider)
+	if err != nil {
+		return nil, fmt.Errorf("create session: %w", err)
+	}
+
+	return &AuthResponse{AccessToken: plainToken, User: user}, nil
+}

@@ -294,3 +294,32 @@ func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+
+func (h *Handler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Provider   string `json:"provider"`
+		ProviderID string `json:"provider_id"`
+		Email      string `json:"email"`
+		Name       string `json:"name"`
+		AvatarURL  string `json:"avatar_url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Email == "" {
+		respond.Error(w, http.StatusBadRequest, "email is required")
+		return
+	}
+	resp, err := h.svc.OAuthLogin(r.Context(), body.Provider, body.ProviderID, body.Email, body.Name, body.AvatarURL)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "oauth login failed")
+		return
+	}
+	respond.OK(w, map[string]interface{}{
+		"access_token": resp.AccessToken,
+		"user": map[string]interface{}{
+			"id":     resp.User.ID,
+			"email":  resp.User.Email,
+			"role":   resp.User.Role,
+			"org_id": resp.User.OrgID,
+		},
+	})
+}
