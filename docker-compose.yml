@@ -12,12 +12,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     restart: unless-stopped
+
+  migrate:
+    image: migrate/migrate:v4.17.0
+    volumes:
+      - ./migrations/migrations:/migrations
+    command: ["-path", "/migrations", "-database", "postgres://postgres:password@postgres:5432/koolbase?sslmode=disable", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
 
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: hatchway
+      POSTGRES_DB: koolbase
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
@@ -42,6 +54,24 @@ services:
       timeout: 3s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
+  minio_data:

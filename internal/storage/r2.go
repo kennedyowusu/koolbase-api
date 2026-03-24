@@ -17,21 +17,22 @@ type R2Client struct {
 	publicURL string
 }
 
-func NewR2Client(accountID, accessKeyID, secretAccessKey, bucket, publicURL string) *R2Client {
-	endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
-
+// NewR2Client accepts a full S3-compatible endpoint URL.
+// For Cloudflare R2: https://<accountID>.r2.cloudflarestorage.com
+// For MinIO:         http://minio:9000
+// For AWS S3:        https://s3.<region>.amazonaws.com
+func NewR2Client(endpoint, accessKeyID, secretAccessKey, bucket, publicURL string) *R2Client {
 	client := s3.New(s3.Options{
-		BaseEndpoint: aws.String(endpoint),
-		Region:       "auto",
-		Credentials:  credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
+		BaseEndpoint:       aws.String(endpoint),
+		Region:             "auto",
+		Credentials:        credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
+		UsePathStyle:       true, // required for MinIO
 	})
-
 	return &R2Client{client: client, bucket: bucket, publicURL: publicURL}
 }
 
 func (r *R2Client) GenerateUploadURL(ctx context.Context, key, contentType string) (string, error) {
 	presigner := s3.NewPresignClient(r.client)
-
 	req, err := presigner.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(r.bucket),
 		Key:         aws.String(key),
@@ -45,7 +46,6 @@ func (r *R2Client) GenerateUploadURL(ctx context.Context, key, contentType strin
 
 func (r *R2Client) GenerateDownloadURL(ctx context.Context, key string) (string, error) {
 	presigner := s3.NewPresignClient(r.client)
-
 	req, err := presigner.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(r.bucket),
 		Key:    aws.String(key),

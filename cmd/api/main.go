@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -127,12 +128,19 @@ func main() {
 	// Functions
 
 	// Storage
-	r2AccountID := os.Getenv("R2_ACCOUNT_ID")
+	
 	r2AccessKey := os.Getenv("R2_ACCESS_KEY_ID")
 	r2SecretKey := os.Getenv("R2_SECRET_ACCESS_KEY")
 	r2Bucket := os.Getenv("R2_BUCKET")
 	r2PublicURL := os.Getenv("R2_PUBLIC_URL")
-	r2Client := storage.NewR2Client(r2AccountID, r2AccessKey, r2SecretKey, r2Bucket, r2PublicURL)
+	r2Endpoint := os.Getenv("S3_ENDPOINT")
+	if r2Endpoint == "" {
+		accountID := os.Getenv("R2_ACCOUNT_ID")
+		if accountID != "" {
+			r2Endpoint = fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+		}
+	}
+	r2Client := storage.NewR2Client(r2Endpoint, r2AccessKey, r2SecretKey, r2Bucket, r2PublicURL)
 	storageRepo := storage.NewRepository(database)
 	storageSvc := storage.NewService(storageRepo, r2Client)
 	otaRepo := ota.NewRepository(database)

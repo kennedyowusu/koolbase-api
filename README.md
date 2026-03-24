@@ -1,57 +1,49 @@
-# Hatchway API
+# Koolbase API
 
-The control plane for Hatchway — a deployment control platform for mobile apps.
+The Go API powering [Koolbase](https://koolbase.com) — a Flutter-first Backend as a Service.
 
-## Stack
+## Self-hosting
 
-- **Go** + Chi router
-- **PostgreSQL** + pgx
-- **Redis** — bootstrap response caching
-- **zerolog** — structured logging
-- **golang-migrate** — database migrations
+### Requirements
+- Docker and Docker Compose
 
-## Getting Started
-
+### Quick start
 ```bash
-# 1. Clone and copy env
+git clone https://github.com/kennedyowusu/koolbase-api
+cd koolbase-api
 cp .env.example .env
-
-# 2. Start dependencies
-docker-compose up postgres redis
-
-# 3. Run migrations
-make migrate-up
-
-# 4. Start the API
-make run
+# Edit .env with your values
+docker compose up
 ```
 
-## Bootstrap Endpoint
+The API will be available at `http://localhost:8080`.
+MinIO console at `http://localhost:9001` (user: `minioadmin`, password: `minioadmin`).
 
+### Services
+| Service | Port | Description |
+|---------|------|-------------|
+| koolbase-api | 8080 | Go REST API |
+| PostgreSQL | 5432 | Primary database |
+| Redis | 6379 | Caching |
+| MinIO | 9000 | S3-compatible object storage |
+| MinIO Console | 9001 | Storage management UI |
+
+### Environment variables
+See `.env.example` for all available options.
+
+### Storage
+By default, self-hosted instances use MinIO for object storage. To use Cloudflare R2 or AWS S3 instead, set:
+```env
+S3_ENDPOINT=https://<accountID>.r2.cloudflarestorage.com  # R2
+# or
+S3_ENDPOINT=https://s3.us-east-1.amazonaws.com            # AWS S3
 ```
-GET /v1/bootstrap?public_key=pk_live_xxx&device_id=uuid&platform=android&app_version=2.4.3
-```
 
-Returns a single atomic payload — flags, config, and version policy.
+### Migrations
+Migrations run automatically on startup via the `migrate` service.
 
-**Rollout evaluation happens in the SDK, not the server.**
-The server returns `rollout_percentage` per flag. The SDK computes:
+## Cloud hosted
+If you don't want to self-host, use [app.koolbase.com](https://app.koolbase.com) — free to start.
 
-```dart
-stableHash("$deviceId:$flagKey") % 100 < flag.rolloutPercentage
-```
-
-This keeps the bootstrap response identical for all devices, enabling CDN-level caching.
-
-## Project Structure
-
-```
-cmd/api/          → entry point
-internal/
-  bootstrap/      → core bootstrap handler, service, types
-pkg/
-  database/       → PostgreSQL connection pool
-  cache/          → Redis client
-  middleware/     → zerolog request logger
-migrations/       → SQL migration files
-```
+## License
+MIT
