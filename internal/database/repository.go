@@ -162,8 +162,6 @@ func (r *Repository) GetRecord(ctx context.Context, projectID, recordID string) 
 	return &rec, nil
 }
 
-// isSafeFieldName validates that a field name only contains safe characters
-// to prevent SQL injection via filter keys.
 func isSafeFieldName(s string) bool {
 	if s == "" {
 		return false
@@ -185,7 +183,6 @@ func (r *Repository) QueryRecords(ctx context.Context, projectID, collectionID s
 	filterSQL := ""
 
 	for key, val := range filters {
-		// Sanitize filter keys to prevent SQL injection
 		if !isSafeFieldName(key) {
 			continue
 		}
@@ -298,20 +295,14 @@ func (r *Repository) GetCollectionByID(ctx context.Context, collectionID string)
 	return &c, nil
 }
 
-// PopulateRecords fetches related records for a list of records.
-// populateFields format: "field_name:collection_name"
-// e.g. "author_id:users" fetches the record from "users" where id = record.data["author_id"]
-// and injects it as "author" into the record data.
 func (r *Repository) PopulateRecords(ctx context.Context, projectID string, records []Record, populateFields []string) error {
 	if len(populateFields) == 0 || len(records) == 0 {
 		return nil
 	}
 
-	// Cache collection lookups to avoid N+1
 	collectionCache := map[string]*Collection{}
 
 	for _, pop := range populateFields {
-		// Validate format contains ":"
 		if !strings.Contains(pop, ":") {
 			continue
 		}
@@ -326,24 +317,20 @@ func (r *Repository) PopulateRecords(ctx context.Context, projectID string, reco
 			continue
 		}
 
-		// Validate field name is safe
 		if !isSafeFieldName(fieldName) {
 			continue
 		}
 
-		// Get collection from cache or DB
 		col, ok := collectionCache[collectionName]
 		if !ok {
 			var err error
 			col, err = r.GetCollection(ctx, projectID, collectionName)
 			if err != nil {
-				// Collection doesn't exist — skip this populate field
 				continue
 			}
 			collectionCache[collectionName] = col
 		}
 
-		// Collect all referenced IDs from records
 		idSet := map[string]bool{}
 		for _, rec := range records {
 			val, ok := rec.Data[fieldName]
@@ -360,7 +347,6 @@ func (r *Repository) PopulateRecords(ctx context.Context, projectID string, reco
 			continue
 		}
 
-		// Cap at 100 IDs to prevent unbounded queries
 		ids := make([]string, 0, len(idSet))
 		for id := range idSet {
 			ids = append(ids, id)
@@ -369,7 +355,6 @@ func (r *Repository) PopulateRecords(ctx context.Context, projectID string, reco
 			}
 		}
 
-		// Use ANY with string array for safe queries
 		rows, err := r.db.Query(ctx,
 			`SELECT id, project_id, collection_id, created_by, data, created_at, updated_at
 			 FROM db_records
@@ -415,7 +400,6 @@ func (r *Repository) PopulateRecords(ctx context.Context, projectID string, reco
 			return fmt.Errorf("populate rows error for %s: %w", pop, err)
 		}
 
-		// Inject populated data — strip _id suffix for key name (author_id → author)
 		populatedKey := strings.TrimSuffix(fieldName, "_id")
 		for i, rec := range records {
 			val, ok := rec.Data[fieldName]
@@ -430,11 +414,10 @@ func (r *Repository) PopulateRecords(ctx context.Context, projectID string, reco
 			if !found {
 				continue
 			}
-			// Guard against key collision — don't overwrite existing non-ID field
+
 			if _, exists := rec.Data[populatedKey]; exists && populatedKey != fieldName {
 				continue
 			}
-			// Copy data map to avoid shared mutation
 			newData := make(map[string]interface{}, len(rec.Data)+1)
 			for k, v := range rec.Data {
 				newData[k] = v

@@ -110,7 +110,6 @@ func (r *Repository) SetActive(ctx context.Context, projectID, channel, bundleID
 	}
 	defer tx.Rollback(ctx)
 
-	// Deactivate all bundles for this project+channel
 	_, err = tx.Exec(ctx,
 		`UPDATE ota_bundles SET active = FALSE WHERE project_id = $1 AND channel = $2`,
 		projectID, channel,
@@ -119,7 +118,6 @@ func (r *Repository) SetActive(ctx context.Context, projectID, channel, bundleID
 		return err
 	}
 
-	// Activate the target bundle
 	_, err = tx.Exec(ctx,
 		`UPDATE ota_bundles SET active = TRUE, updated_at = now() WHERE id = $1`,
 		bundleID,

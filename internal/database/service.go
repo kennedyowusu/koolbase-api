@@ -107,7 +107,6 @@ func (s *Service) Get(ctx context.Context, projectID, userID, recordID string) (
 		return nil, err
 	}
 
-	// Fix: use GetCollectionByID instead of GetCollection with empty name
 	col, err := s.repo.GetCollectionByID(ctx, rec.CollectionID)
 	if err == nil {
 		if err := checkReadPermission(col.ReadRule, userID, rec.CreatedBy); err != nil {
@@ -154,7 +153,6 @@ func (s *Service) Query(ctx context.Context, projectID, userID string, req Query
 		return nil, 0, err
 	}
 
-	// Populate related records if requested
 	if len(req.Populate) > 0 {
 		if err := s.repo.PopulateRecords(ctx, projectID, records, req.Populate); err != nil {
 			return nil, 0, err

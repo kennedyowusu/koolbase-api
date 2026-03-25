@@ -15,7 +15,6 @@ func encryptionKey() ([]byte, error) {
 	if key == "" {
 		return nil, errors.New("SECRET_ENCRYPTION_KEY is not set")
 	}
-	// Key must be 32 bytes for AES-256
 	b := []byte(key)
 	if len(b) < 32 {
 		padded := make([]byte, 32)

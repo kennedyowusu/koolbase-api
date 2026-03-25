@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Environment holds the resolved environment data from a public key lookup
 type Environment struct {
 	ID        string
 	ProjectID string
@@ -15,7 +14,6 @@ type Environment struct {
 	PublicKey string
 }
 
-// EnvironmentRepository handles DB lookups for environments
 type EnvironmentRepository struct {
 	db *pgxpool.Pool
 }
@@ -24,8 +22,6 @@ func NewEnvironmentRepository(db *pgxpool.Pool) *EnvironmentRepository {
 	return &EnvironmentRepository{db: db}
 }
 
-// FindByPublicKey resolves an environment from an SDK public key.
-// This is the entry point for every bootstrap request.
 func (r *EnvironmentRepository) FindByPublicKey(ctx context.Context, publicKey string) (*Environment, error) {
 	var env Environment
 	err := r.db.QueryRow(ctx,

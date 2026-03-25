@@ -17,16 +17,12 @@ type R2Client struct {
 	publicURL string
 }
 
-// NewR2Client accepts a full S3-compatible endpoint URL.
-// For Cloudflare R2: https://<accountID>.r2.cloudflarestorage.com
-// For MinIO:         http://minio:9000
-// For AWS S3:        https://s3.<region>.amazonaws.com
 func NewR2Client(endpoint, accessKeyID, secretAccessKey, bucket, publicURL string) *R2Client {
 	client := s3.New(s3.Options{
 		BaseEndpoint:       aws.String(endpoint),
 		Region:             "auto",
 		Credentials:        credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
-		UsePathStyle:       true, // required for MinIO
+		UsePathStyle:       true,
 	})
 	return &R2Client{client: client, bucket: bucket, publicURL: publicURL}
 }

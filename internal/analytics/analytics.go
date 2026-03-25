@@ -40,17 +40,14 @@ type Summary struct {
 	ActiveEnvs      int `json:"active_envs"`
 }
 
-// GetOrgStats returns usage analytics for an organization over the last 30 days
 func (h *Handler) GetOrgStats(w http.ResponseWriter, r *http.Request) {
 	orgID := chi.URLParam(r, "org_id")
 	days := 30
 
 	since := time.Now().AddDate(0, 0, -days).Format("2006-01-02")
 
-	// Summary stats
 	var summary Summary
 
-	// Total requests in period
 	h.db.QueryRow(r.Context(),
 		`SELECT COALESCE(SUM(bs.request_count), 0)
 		 FROM bootstrap_stats bs
@@ -60,7 +57,6 @@ func (h *Handler) GetOrgStats(w http.ResponseWriter, r *http.Request) {
 		orgID, since,
 	).Scan(&summary.TotalRequests)
 
-	// Total unique devices
 	h.db.QueryRow(r.Context(),
 		`SELECT COUNT(DISTINCT d.device_id)
 		 FROM devices d
@@ -70,7 +66,6 @@ func (h *Handler) GetOrgStats(w http.ResponseWriter, r *http.Request) {
 		orgID,
 	).Scan(&summary.TotalDevices)
 
-	// Requests today
 	h.db.QueryRow(r.Context(),
 		`SELECT COALESCE(SUM(bs.request_count), 0)
 		 FROM bootstrap_stats bs
@@ -80,7 +75,6 @@ func (h *Handler) GetOrgStats(w http.ResponseWriter, r *http.Request) {
 		orgID,
 	).Scan(&summary.RequestsToday)
 
-	// Active environments
 	h.db.QueryRow(r.Context(),
 		`SELECT COUNT(DISTINCT bs.environment_id)
 		 FROM bootstrap_stats bs
@@ -90,7 +84,6 @@ func (h *Handler) GetOrgStats(w http.ResponseWriter, r *http.Request) {
 		orgID, since,
 	).Scan(&summary.ActiveEnvs)
 
-	// Daily requests for chart
 	dailyRows, _ := h.db.Query(r.Context(),
 		`SELECT bs.date::text, COALESCE(SUM(bs.request_count), 0)
 		 FROM generate_series($2::date, CURRENT_DATE, '1 day'::interval) AS gs(date)
@@ -113,7 +106,6 @@ func (h *Handler) GetOrgStats(w http.ResponseWriter, r *http.Request) {
 		daily = append(daily, s)
 	}
 
-	// Platform breakdown
 	platformRows, _ := h.db.Query(r.Context(),
 		`SELECT bs.platform, COALESCE(SUM(bs.request_count), 0)
 		 FROM bootstrap_stats bs
@@ -133,7 +125,6 @@ func (h *Handler) GetOrgStats(w http.ResponseWriter, r *http.Request) {
 		platforms = append(platforms, s)
 	}
 
-	// Top environments
 	envRows, _ := h.db.Query(r.Context(),
 		`SELECT e.id, e.name, COALESCE(SUM(bs.request_count), 0)
 		 FROM environments e

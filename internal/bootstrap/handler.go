@@ -24,9 +24,6 @@ func NewHandler(db *pgxpool.Pool, rdb *redis.Client) *Handler {
 	return &Handler{service: service, db: db}
 }
 
-// Handle processes GET /v1/bootstrap
-// This is a pure passthrough — it fetches prebuilt snapshot bytes and writes them directly.
-// No JSON marshalling, no business logic, no DB access on the hot path.
 func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
@@ -52,7 +49,6 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch prebuilt snapshot — raw JSON bytes
 	snapshot, envID, err := h.service.GetSnapshot(r.Context(), publicKey)
 	if err != nil {
 		if errors.Is(err, ErrEnvironmentNotFound) {
@@ -64,7 +60,6 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Register device and record stats async — never block the response
 	go recordStat(context.Background(), h.db, envID, platform)
 	go registerDevice(context.Background(), h.db, &Request{
 		PublicKey:  publicKey,
@@ -73,7 +68,6 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 		AppVersion: appVersion,
 	})
 
-	// Write raw snapshot bytes directly — no re-marshalling
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "public, max-age=30")
 	w.Write(snapshot)

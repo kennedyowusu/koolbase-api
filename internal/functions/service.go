@@ -49,7 +49,6 @@ func (s *Service) Deploy(ctx context.Context, projectID, name, code string, time
 }
 
 func (s *Service) Invoke(ctx context.Context, projectID, name, apiKey string, req InvokeRequest) (*InvokeResponse, error) {
-	// Fix 2 — context cancellation check
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -58,7 +57,6 @@ func (s *Service) Invoke(ctx context.Context, projectID, name, apiKey string, re
 
 	fn, err := s.repo.GetActiveFunction(ctx, projectID, name)
 	if err != nil {
-		// Fix 1 — don't swallow real errors
 		if errors.Is(err, ErrFunctionNotFound) {
 			return nil, err
 		}
@@ -74,7 +72,6 @@ func (s *Service) Invoke(ctx context.Context, projectID, name, apiKey string, re
 		reqBody["collection"] = req.Collection
 		reqBody["payload"] = req.Payload
 	}
-	// Load decrypted secrets for this project
 	secretMap := map[string]string{}
 	if encSecrets, err := s.repo.GetSecretValues(ctx, projectID); err == nil {
 		for k, v := range encSecrets {
@@ -98,7 +95,6 @@ func (s *Service) Invoke(ctx context.Context, projectID, name, apiKey string, re
 
 	result := Execute(fn, input)
 
-	// Fix 4 — observability
 	fmt.Printf("[functions] executed %s v%d status=%d duration=%dms\n",
 		fn.Name, fn.Version, result.Status, result.DurationMs)
 
@@ -140,9 +136,7 @@ func (s *Service) Invoke(ctx context.Context, projectID, name, apiKey string, re
 	}, nil
 }
 
-// Fix 3 — trigger execution is non-blocking
 func (s *Service) InvokeForTrigger(ctx context.Context, projectID, functionName, apiKey, eventType, collection string, payload map[string]interface{}) {
-	// context check before spinning goroutine
 	select {
 	case <-ctx.Done():
 		return
@@ -157,13 +151,11 @@ func (s *Service) executeTriggerAsync(projectID, functionName, apiKey, eventType
 	fn, err := s.repo.GetActiveFunction(ctx, projectID, functionName)
 	if err != nil {
 		fmt.Printf("[functions] trigger: function %s not found for project %s\n", functionName, projectID)
-		// Enqueue for retry — function may be temporarily unavailable
 		s.repo.EnqueueRetry(ctx, projectID, functionName, eventType, collection, apiKey,
 			"function not found: "+err.Error(), payload)
 		return
 	}
 
-	// Load decrypted secrets for this project
 	triggerSecrets := map[string]string{}
 	if encSecrets, err := s.repo.GetSecretValues(ctx, projectID); err == nil {
 		for k, v := range encSecrets {
@@ -224,7 +216,6 @@ func (s *Service) executeTriggerAsync(projectID, functionName, apiKey, eventType
 		Error:           errorPtr,
 	})
 
-	// If execution failed, enqueue for retry
 	if result.Status != 200 {
 		lastError := result.Error
 		if lastError == "" {
@@ -254,7 +245,6 @@ func (s *Service) CreateTrigger(ctx context.Context, projectID string, req Creat
 	if req.FunctionName == "" || req.EventType == "" || req.Collection == "" {
 		return nil, errors.New("function_name, event_type and collection are required")
 	}
-	// Fix 5 — validate collection name length
 	if len(req.Collection) > 63 {
 		return nil, errors.New("collection name too long")
 	}

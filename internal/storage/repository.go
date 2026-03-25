@@ -44,7 +44,6 @@ func (r *Repository) GetProjectIDByDashboardUser(ctx context.Context, projectID,
 	return count > 0, err
 }
 
-// Bucket operations
 func (r *Repository) CreateBucket(ctx context.Context, projectID, name string, public bool) (*Bucket, error) {
 	var b Bucket
 	err := r.db.QueryRow(ctx,
@@ -114,7 +113,6 @@ func (r *Repository) DeleteBucket(ctx context.Context, projectID, name string) e
 	return nil
 }
 
-// Object operations
 func (r *Repository) InsertObject(ctx context.Context, projectID, bucketID string, userID *string, path string, size int64, contentType, etag string) (*Object, error) {
 	var obj Object
 	err := r.db.QueryRow(ctx,

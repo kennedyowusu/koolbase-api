@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"fmt"
+
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -99,7 +100,6 @@ func main() {
 	auth.StartCleanupJob(authRepo)
 	inviteHandler := invitations.NewHandler(database, mailer, appURL)
 	analyticsHandler := analytics.NewHandler(database)
-	// Realtime hub
 	realtimeHub := realtime.NewHub()
 	go realtimeHub.Run()
 	realtimeAuthorizer := realtime.NewDBAuthorizer(database)
@@ -114,7 +114,6 @@ func main() {
 	billingRepo := billing.NewRepository(database)
 	billingHandler := billing.NewHandler(billingRepo)
 
-	// Start retry worker with cancellable context
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	defer workerCancel()
 	fnWorker := functions.NewWorker(fnRepo, fnSvc)
@@ -125,10 +124,6 @@ func main() {
 
 	realtimeHandler := realtime.NewHandler(realtimeHub, realtimeAuthorizer, authService)
 
-	// Functions
-
-	// Storage
-	
 	r2AccessKey := os.Getenv("R2_ACCESS_KEY_ID")
 	r2SecretKey := os.Getenv("R2_SECRET_ACCESS_KEY")
 	r2Bucket := os.Getenv("R2_BUCKET")
@@ -155,7 +150,6 @@ func main() {
 	projAuthSvc := projectauth.NewService(projAuthRepo, projAuthMailer, jwtSecret, appURL)
 	projAuthHandler := projectauth.NewHandler(projAuthSvc, projAuthRepo)
 
-	// 5 requests per minute, burst of 10
 	authLimiter := apimiddleware.NewIPRateLimiter(rate.Every(time.Minute/5), 10)
 
 	r := chi.NewRouter()
@@ -177,12 +171,9 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// All /v1 routes in one block
 	r.Route("/v1", func(r chi.Router) {
-		// Public — no auth required
 		r.Get("/bootstrap", bootstrapHandler.Handle)
 
-		// Auth routes
 		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/signup", authHandler.Signup)
 		r.With(apimiddleware.RateLimit(authLimiter)).Post("/auth/login", authHandler.Login)
 		r.Post("/auth/logout", authHandler.Logout)
@@ -215,7 +206,6 @@ func main() {
 			r.Get("/sdk/auth/me", projAuthHandler.GetMe)
 			r.Patch("/sdk/auth/me", projAuthHandler.UpdateMe)
 
-		// Management routes — protected by JWT
 		r.Group(func(r chi.Router) {
 			r.Use(apimiddleware.RequireAuth(authService))
 					r.Use(apimiddleware.AuditLog(auditWriter))
@@ -290,7 +280,6 @@ func main() {
 		})
 	})
 
-	// Internal service-to-service routes
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(apimiddleware.InternalOnly)
 		r.Post("/environments/{environment_id}/snapshot/rebuild", adminHandler.RebuildSnapshot)

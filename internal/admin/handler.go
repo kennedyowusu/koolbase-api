@@ -26,8 +26,6 @@ func NewHandler(db *pgxpool.Pool, rdb *redis.Client) *Handler {
 	}
 }
 
-// RebuildSnapshot triggers a fresh snapshot build for an environment.
-// POST /internal/environments/{environment_id}/snapshot/rebuild
 func (h *Handler) RebuildSnapshot(w http.ResponseWriter, r *http.Request) {
 	environmentID := chi.URLParam(r, "environment_id")
 	if environmentID == "" {

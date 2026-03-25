@@ -273,7 +273,6 @@ func (h *Handler) PeekInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user already exists
 	var existingUserID string
 	h.db.QueryRow(r.Context(), `SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL`, inv.Email).Scan(&existingUserID)
 
@@ -289,7 +288,6 @@ func (h *Handler) RevokeInvite(w http.ResponseWriter, r *http.Request) {
 	orgID := chi.URLParam(r, "org_id")
 	inviteID := chi.URLParam(r, "invite_id")
 
-	// Get email before deleting
 	var invEmail, orgName string
 	h.db.QueryRow(r.Context(), `SELECT email FROM invitations WHERE id = $1`, inviteID).Scan(&invEmail)
 	h.db.QueryRow(r.Context(), `SELECT name FROM organizations WHERE id = $1`, orgID).Scan(&orgName)

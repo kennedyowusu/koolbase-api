@@ -46,7 +46,6 @@ func (s *Service) ConfirmUpload(ctx context.Context, projectID, userID, bucketNa
 
 	key := s.r2.StorageKey(projectID, bucket.Name, path)
 
-	// Verify file actually exists in R2
 	if !s.r2.ObjectExists(ctx, key) {
 		return nil, errors.New("file not found in storage — upload may have failed")
 	}
@@ -87,12 +86,10 @@ func (s *Service) DeleteObject(ctx context.Context, projectID, bucketName, path 
 
 	key := s.r2.StorageKey(projectID, bucket.Name, path)
 
-	// Delete from R2
 	if err := s.r2.DeleteObject(ctx, key); err != nil {
 		return fmt.Errorf("delete from storage: %w", err)
 	}
 
-	// Delete metadata
 	if err := s.repo.DeleteObject(ctx, bucket.ID, path); err != nil && !errors.Is(err, ErrObjectNotFound) {
 		return err
 	}

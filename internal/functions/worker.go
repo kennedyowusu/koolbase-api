@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// Exponential backoff: 1, 2, 4, 8, 16 minutes
 var retryBackoff = []time.Duration{
 	1 * time.Minute,
 	2 * time.Minute,
@@ -30,7 +29,6 @@ func (w *Worker) Start(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	// Run immediately on start
 	w.processRetries(ctx)
 
 	for {
@@ -89,7 +87,6 @@ func (w *Worker) processJob(ctx context.Context, job RetryJob) {
 
 	result := Execute(fn, input)
 
-	// Determine status
 	status := "success"
 	if result.Status == 504 {
 		status = "timeout"
@@ -97,7 +94,6 @@ func (w *Worker) processJob(ctx context.Context, job RetryJob) {
 		status = "error"
 	}
 
-	// Log the attempt
 	var outputPtr, errorPtr *string
 	if result.Output != "" {
 		outputPtr = &result.Output
@@ -126,7 +122,6 @@ func (w *Worker) processJob(ctx context.Context, job RetryJob) {
 		return
 	}
 
-	// Failed — increment attempt
 	newAttempt := job.Attempt + 1
 	lastError := result.Error
 	if lastError == "" {
@@ -141,7 +136,6 @@ func (w *Worker) processJob(ctx context.Context, job RetryJob) {
 		return
 	}
 
-	// Schedule next retry with exponential backoff
 	backoff := retryBackoff[newAttempt-1]
 	if newAttempt-1 >= len(retryBackoff) {
 		backoff = 16 * time.Minute

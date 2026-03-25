@@ -40,8 +40,6 @@ func (h *Handler) resolveAPIKey(r *http.Request) (projectID string, apiKey strin
 	return projectID, apiKey, err
 }
 
-// Dashboard endpoints
-
 func (h *Handler) ListFunctions(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "project_id")
 	if !h.authorizeProject(r, projectID) {
@@ -185,8 +183,6 @@ func (h *Handler) DeleteTrigger(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// SDK endpoint — invoke a function via API key
-
 func (h *Handler) SDKInvoke(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
@@ -214,7 +210,6 @@ func (h *Handler) SDKInvoke(w http.ResponseWriter, r *http.Request) {
 		req.Body = map[string]interface{}{}
 	}
 
-	// Fix 4 — full normalized header map
 	req.Headers = map[string]string{}
 	for k, v := range r.Header {
 		if len(v) > 0 {
@@ -236,8 +231,6 @@ func (h *Handler) SDKInvoke(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(res.Status)
 	json.NewEncoder(w).Encode(res.Body)
 }
-
-// DLQ endpoints
 
 func (h *Handler) ListDeadLetters(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "project_id")
@@ -297,13 +290,10 @@ func (h *Handler) ReplayDeadLetter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Remove from dead letters
 	h.repo.DeleteDeadLetter(r.Context(), projectID, id)
 
 	respond.OK(w, map[string]string{"status": "replayed"})
 }
-
-// Secrets endpoints
 
 func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "project_id")
@@ -370,8 +360,6 @@ func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
-
-// Trigger observability
 
 func (h *Handler) GetTriggerStats(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "project_id")

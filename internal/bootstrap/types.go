@@ -10,7 +10,6 @@ import (
 
 var ErrEnvironmentNotFound = errors.New("environment not found")
 
-// Request holds parsed query params from the SDK
 type Request struct {
 	PublicKey  string
 	DeviceID   string
@@ -18,8 +17,6 @@ type Request struct {
 	AppVersion string
 }
 
-// Payload is the atomic bootstrap response returned to the SDK.
-// NOTE: No rollout bucket — SDK computes stableHash(deviceID+":"+flagKey) % 100 locally.
 type Payload struct {
 	PayloadVersion string          `json:"payload_version"`
 	Flags          map[string]Flag `json:"flags"`
@@ -27,15 +24,12 @@ type Payload struct {
 	Version        VersionPolicy   `json:"version"`
 }
 
-// Flag represents a single feature flag rule.
-// SDK evaluates: stableHash(deviceID + ":" + flagKey) % 100 < RolloutPercentage
 type Flag struct {
 	Enabled           bool `json:"enabled"`
 	RolloutPercentage int  `json:"rollout_percentage"`
 	KillSwitch        bool `json:"kill_switch"`
 }
 
-// VersionPolicy controls forced/soft update behavior
 type VersionPolicy struct {
 	Latest        string `json:"latest_version"`
 	MinSupported  string `json:"min_version"`
@@ -43,10 +37,7 @@ type VersionPolicy struct {
 	UpdateMessage string `json:"update_message"`
 }
 
-// registerDevice records device activity asynchronously.
-// Called as a goroutine — never blocks the bootstrap response.
 func registerDevice(ctx context.Context, db *pgxpool.Pool, req *Request) {
-	// Resolve environment_id from public_key for device registration
 	var envID string
 	err := db.QueryRow(ctx,
 		`SELECT id FROM environments WHERE public_key = $1 LIMIT 1`,
@@ -68,7 +59,6 @@ func registerDevice(ctx context.Context, db *pgxpool.Pool, req *Request) {
 	}
 }
 
-// recordStat increments the daily bootstrap request count for the environment+platform.
 func recordStat(ctx context.Context, db *pgxpool.Pool, envID, platform string) {
 	_, err := db.Exec(ctx,
 		`INSERT INTO bootstrap_stats (environment_id, date, platform, request_count)

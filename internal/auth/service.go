@@ -56,7 +56,6 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 	}
 	if existing != nil && existing.DeletedAt != nil {
 		var orgID, userRole string
-		// Validate invite token if provided before reactivating
 		if req.InviteToken != "" {
 			tokenHash := hashToken(req.InviteToken)
 			var invOrgID, invRole string
@@ -68,7 +67,6 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 		}
 		_ = orgID
 		_ = userRole
-		// Reactivate soft-deleted account with new password
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)
 		if err != nil {
 			return nil, fmt.Errorf("hash password: %w", err)
@@ -79,7 +77,6 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 		if err := s.repo.UpdatePassword(ctx, existing.ID, string(hash)); err != nil {
 			return nil, fmt.Errorf("update password: %w", err)
 		}
-		// Send verification email
 		plainToken, tokenHash, err := generateToken()
 		if err != nil {
 			return nil, fmt.Errorf("generate verification token: %w", err)
@@ -105,7 +102,6 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 	var userRole string = "owner"
 
 	if req.InviteToken != "" {
-		// Get org from invitation
 		tokenHash := hashToken(req.InviteToken)
 		var invOrgID, invRole string
 		err := s.repo.GetInviteOrgAndRole(ctx, tokenHash, &invOrgID, &invRole)
@@ -135,7 +131,6 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (*User, error) 
 		return nil, fmt.Errorf("store verification token: %w", err)
 	}
 
-	// Send verification email directly
 	verifyURL := fmt.Sprintf("%s/verify-email?token=%s", s.appURL, plainToken)
 	if err := s.mailer.Send(ctx, email.Message{
 		To:      user.Email,
@@ -246,7 +241,6 @@ func (s *Service) ForgotPassword(ctx context.Context, req ForgotPasswordRequest)
 		return fmt.Errorf("store reset token: %w", err)
 	}
 
-	// Send reset email directly
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.appURL, plainToken)
 	if err := s.mailer.Send(ctx, email.Message{
 		To:      user.Email,
@@ -334,18 +328,15 @@ func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, n
 }
 
 func (s *Service) RequestEmailChange(ctx context.Context, userID, newEmail string) error {
-	// Check email not already taken
 	existing, _ := s.repo.GetUserByEmail(ctx, newEmail)
 	if existing != nil {
 		return ErrEmailTaken
 	}
 
-	// Store pending email
 	if err := s.repo.SetPendingEmail(ctx, userID, newEmail); err != nil {
 		return fmt.Errorf("set pending email: %w", err)
 	}
 
-	// Generate verification token
 	plainToken, tokenHash, err := generateToken()
 	if err != nil {
 		return fmt.Errorf("generate token: %w", err)
@@ -355,7 +346,6 @@ func (s *Service) RequestEmailChange(ctx context.Context, userID, newEmail strin
 		return fmt.Errorf("store token: %w", err)
 	}
 
-	// Send verification to new email
 	verifyURL := fmt.Sprintf("%s/verify-email-change?token=%s", s.appURL, plainToken)
 	if err := s.mailer.Send(context.Background(), email.Message{
 		To:      newEmail,
@@ -410,10 +400,8 @@ func (s *Service) DeleteAccount(ctx context.Context, userID string) error {
 }
 
 func (s *Service) OAuthLogin(ctx context.Context, provider, providerID, email, name, avatarURL string) (*AuthResponse, error) {
-	// Check if user already exists
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
-		// User doesn't exist — create org + user
 		orgName := name
 		if orgName == "" {
 			orgName = email
@@ -426,14 +414,12 @@ func (s *Service) OAuthLogin(ctx context.Context, provider, providerID, email, n
 		if err != nil {
 			return nil, fmt.Errorf("create user: %w", err)
 		}
-		// Mark as verified since OAuth is pre-verified
 		if err := s.repo.MarkEmailVerified(ctx, user.ID); err != nil {
 			return nil, fmt.Errorf("mark verified: %w", err)
 		}
 		user.Verified = true
 	}
 
-	// Create session
 	plainToken, tokenHash, err := generateToken()
 	if err != nil {
 		return nil, fmt.Errorf("generate session token: %w", err)

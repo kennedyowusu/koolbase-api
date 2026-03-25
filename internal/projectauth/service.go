@@ -58,7 +58,6 @@ func (s *Service) Register(ctx context.Context, projectID, environmentID string,
 		return nil, err
 	}
 
-	// Send verification email async
 	go func() {
 		plainToken, tokenHash, err := generateToken()
 		if err != nil {
@@ -109,7 +108,6 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*Session, e
 		return nil, ErrInvalidToken
 	}
 
-	// Revoke old refresh token
 	s.repo.DeleteSessionByRefreshToken(ctx, tokenHash)
 
 	user, err := s.repo.GetUserByID(ctx, userID)

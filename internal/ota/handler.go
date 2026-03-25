@@ -169,7 +169,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Best-effort R2 delete — don't fail if R2 delete fails
 	h.r2.DeleteObject(r.Context(), bundle.StoragePath)
 
 	if err := h.repo.Delete(r.Context(), projectID, bundleID); err != nil {
@@ -180,7 +179,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// SDKCheck — called by the Flutter SDK on app launch
 func (h *Handler) SDKCheck(w http.ResponseWriter, r *http.Request) {
 	apiKey := r.Header.Get("x-api-key")
 	if apiKey == "" {

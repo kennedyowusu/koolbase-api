@@ -43,8 +43,6 @@ func (h *Handler) authorizeProject(r *http.Request, projectID string) bool {
 	return ok
 }
 
-// Dashboard endpoints
-
 func (h *Handler) CreateCollection(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "project_id")
 	if !h.authorizeProject(r, projectID) {
@@ -141,8 +139,6 @@ func (h *Handler) ListRecordsDashboard(w http.ResponseWriter, r *http.Request) {
 		"offset":  offset,
 	})
 }
-
-// SDK endpoints
 
 func (h *Handler) SDKInsert(w http.ResponseWriter, r *http.Request) {
 	projectID, err := h.resolveAPIKey(r)

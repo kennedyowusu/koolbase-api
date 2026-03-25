@@ -229,14 +229,13 @@ func (r *Repository) RotateSecretKey(ctx context.Context, envID, newKey string) 
 
 func (h *Handler) RotateKey(w http.ResponseWriter, r *http.Request) {
 	envID := chi.URLParam(r, "env_id")
-	keyType := chi.URLParam(r, "key_type") // "public" or "secret"
+	keyType := chi.URLParam(r, "key_type")
 
 	if keyType != "public" && keyType != "secret" {
 		writeError(w, http.StatusBadRequest, "key_type must be public or secret")
 		return
 	}
 
-	// Get environment to determine name for prefix
 	envs, err := h.repo.db.Query(r.Context(),
 		`SELECT name FROM environments WHERE id = $1`, envID)
 	if err != nil {
@@ -285,7 +284,6 @@ func (h *Handler) Duplicate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch source environment to get project_id
 	var projectID string
 	err := h.repo.db.QueryRow(r.Context(),
 		`SELECT project_id FROM environments WHERE id = $1`, sourceEnvID,
@@ -295,7 +293,6 @@ func (h *Handler) Duplicate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate keys for new environment
 	slug := toSlug(body.Name)
 	publicKey, err := generateKey("public", body.Name)
 	if err != nil {
@@ -308,14 +305,12 @@ func (h *Handler) Duplicate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create the new environment
 	newEnv, err := h.repo.Create(r.Context(), projectID, body.Name, slug, publicKey, secretKey)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create environment")
 		return
 	}
 
-	// Copy feature flags
 	rows, err := h.repo.db.Query(r.Context(),
 		`SELECT key, enabled, rollout_percentage, kill_switch, description
 		 FROM feature_flags WHERE environment_id = $1`, sourceEnvID,
@@ -336,7 +331,6 @@ func (h *Handler) Duplicate(w http.ResponseWriter, r *http.Request) {
 				newEnv.ID, key, enabled, rollout, killSwitch, description,
 			).Scan(&newFlagID)
 
-			// Copy flag rules
 			if newFlagID != "" {
 				ruleRows, err := h.repo.db.Query(r.Context(),
 					`SELECT type, config, priority FROM flag_rules WHERE flag_id IN (
@@ -362,7 +356,6 @@ func (h *Handler) Duplicate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Copy remote configs
 	configRows, err := h.repo.db.Query(r.Context(),
 		`SELECT key, value, description FROM remote_configs WHERE environment_id = $1`, sourceEnvID,
 	)
@@ -381,7 +374,6 @@ func (h *Handler) Duplicate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Copy version policies
 	policyRows, err := h.repo.db.Query(r.Context(),
 		`SELECT platform, min_version, latest_version, force_update, update_message, store_url
 		 FROM version_policies WHERE environment_id = $1`, sourceEnvID,
@@ -403,7 +395,6 @@ func (h *Handler) Duplicate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Trigger snapshot rebuild for new environment
 	go func() {
 		if err := h.builder.Rebuild(context.Background(), newEnv.ID); err != nil {
 			log.Error().Err(err).Str("env_id", newEnv.ID).Msg("snapshot build failed after duplication")

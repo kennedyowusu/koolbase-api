@@ -42,7 +42,6 @@ type ExecutionResult struct {
 	DurationMs int
 }
 
-// SyncFunctionToDisk writes function code to disk at deploy time
 func SyncFunctionToDisk(fn *Function) error {
 	dir := filepath.Join(functionsDir, fn.ProjectID, fn.Name, fmt.Sprintf("v%d", fn.Version))
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -57,8 +56,6 @@ func FunctionFilePath(fn *Function) string {
 		fmt.Sprintf("v%d", fn.Version), "index.ts")
 }
 
-// buildWrapper wraps user code with Koolbase runtime context.
-// Contract: developer must export `async function handler(ctx) { ... }`
 func buildWrapper(userCode string) string {
 	return fmt.Sprintf(`
 // ── Koolbase Function Runtime ──────────────────────────────────────
@@ -127,14 +124,12 @@ console.log("__KOOLBASE_RESULT__" + __output);
 `, userCode)
 }
 
-// Execute runs an already-deployed function from disk
 func Execute(fn *Function, input ExecutionInput) *ExecutionResult {
 	start := time.Now()
 	result := &ExecutionResult{}
 
 	var filePath string
 	if input.TestMode {
-		// Write temp file with mock DB for test execution
 		tmpDir := filepath.Join(functionsDir, fn.ProjectID, fn.Name, fmt.Sprintf("v%d-test", fn.Version))
 		if err := os.MkdirAll(tmpDir, 0755); err != nil {
 			result.Error = "failed to create test dir: " + err.Error()
@@ -173,7 +168,6 @@ func Execute(fn *Function, input ExecutionInput) *ExecutionResult {
 	appURL := os.Getenv("APP_URL")
 	allowNet := "--allow-net"
 	if appURL != "" {
-		// Allow Koolbase API + any external (developer flexibility in Phase 1)
 		allowNet = "--allow-net"
 	}
 
@@ -182,7 +176,7 @@ func Execute(fn *Function, input ExecutionInput) *ExecutionResult {
 		"--quiet",
 		"--no-prompt",
 		allowNet,
-		"--allow-env",  // allow all env vars including injected secrets
+		"--allow-env",
 		"--deny-read",
 		"--deny-write",
 		filePath,

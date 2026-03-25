@@ -10,9 +10,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// SnapshotBuilder assembles the bootstrap payload from Postgres.
-// This runs on the WRITE path only — when flags/config/version change.
-// The read path just fetches the prebuilt snapshot from Redis.
 type SnapshotBuilder struct {
 	db           *pgxpool.Pool
 	snapshotRepo *SnapshotRepository
@@ -22,8 +19,6 @@ func NewSnapshotBuilder(db *pgxpool.Pool, snapshotRepo *SnapshotRepository) *Sna
 	return &SnapshotBuilder{db: db, snapshotRepo: snapshotRepo}
 }
 
-// Rebuild assembles a fresh snapshot from Postgres and stores it in Redis.
-// Call this after any flag, config, or version policy change for the environment.
 func (b *SnapshotBuilder) Rebuild(ctx context.Context, environmentID string) error {
 	log.Info().Str("env_id", environmentID).Msg("rebuilding bootstrap snapshot")
 
@@ -42,28 +37,23 @@ func (b *SnapshotBuilder) Rebuild(ctx context.Context, environmentID string) err
 		return fmt.Errorf("fetch version policy: %w", err)
 	}
 
-	// Build payload WITHOUT payload_version first
 	payload := &Payload{
 		Flags:   flags,
 		Config:  configs,
 		Version: versionPolicy,
 	}
 
-	// Hash the payload to generate payload_version, then inject it
-	// Order matters: hash first, then set the version field
 	intermediate, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal intermediate: %w", err)
 	}
 	payload.PayloadVersion = generateHash(intermediate)
 
-	// Marshal final payload with payload_version included
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal final payload: %w", err)
 	}
 
-	// Store raw JSON bytes in Redis
 	if err := b.snapshotRepo.Set(ctx, environmentID, data); err != nil {
 		return fmt.Errorf("store snapshot: %w", err)
 	}
@@ -142,11 +132,9 @@ func (b *SnapshotBuilder) fetchVersionPolicy(ctx context.Context, envID string) 
 	return vp, nil
 }
 
-// generateHash computes a short deterministic hash of the payload content.
-// Used as payload_version so the SDK can detect changes without diffing the full payload.
 func generateHash(data []byte) string {
 	sum := sha256.Sum256(data)
-	return fmt.Sprintf("%x", sum[:6]) // 12 hex chars
+	return fmt.Sprintf("%x", sum[:6])
 }
 
 func castConfigValue(raw, typ string) any {

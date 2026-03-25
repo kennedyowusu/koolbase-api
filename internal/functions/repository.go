@@ -56,7 +56,6 @@ func (r *Repository) DeployFunction(ctx context.Context, projectID, name, code s
 	}
 	defer tx.Rollback(ctx)
 
-	// Get next version — check error
 	var maxVersion int
 	if err := tx.QueryRow(ctx,
 		`SELECT COALESCE(MAX(version), 0) FROM project_functions WHERE project_id = $1 AND name = $2`,
@@ -66,7 +65,6 @@ func (r *Repository) DeployFunction(ctx context.Context, projectID, name, code s
 	}
 	nextVersion := maxVersion + 1
 
-	// Deactivate previous active version
 	if _, err := tx.Exec(ctx,
 		`UPDATE project_functions SET is_active = FALSE WHERE project_id = $1 AND name = $2 AND is_active = TRUE`,
 		projectID, name,
@@ -74,7 +72,6 @@ func (r *Repository) DeployFunction(ctx context.Context, projectID, name, code s
 		return nil, err
 	}
 
-	// Insert new active version
 	var fn Function
 	if err := tx.QueryRow(ctx,
 		`INSERT INTO project_functions
@@ -203,7 +200,6 @@ func (r *Repository) ListLogs(ctx context.Context, projectID, functionID string,
 	return logs, rows.Err()
 }
 
-// Triggers — use function_name for version-agnostic binding
 func (r *Repository) CreateTrigger(ctx context.Context, projectID, functionName, eventType, collection string) (*Trigger, error) {
 	var t Trigger
 	err := r.db.QueryRow(ctx,
@@ -276,8 +272,6 @@ func (r *Repository) DeleteTrigger(ctx context.Context, projectID, triggerID str
 	}
 	return nil
 }
-
-// Retry queue
 
 func (r *Repository) EnqueueRetry(ctx context.Context, projectID, functionName, eventType, collection, apiKey, lastError string, payload map[string]interface{}) error {
 	payloadJSON, err := json.Marshal(payload)
@@ -379,8 +373,6 @@ func (r *Repository) MoveToDeadLetter(ctx context.Context, job RetryJob) error {
 	return tx.Commit(ctx)
 }
 
-// Dead letters
-
 type DeadLetter struct {
 	ID           string                 `json:"id"`
 	ProjectID    string                 `json:"project_id"`
@@ -443,8 +435,6 @@ func (r *Repository) ReplayDeadLetter(ctx context.Context, projectID, id string)
 	json.Unmarshal(payloadJSON, &d.Payload)
 	return &d, nil
 }
-
-// Secrets
 
 func (r *Repository) UpsertSecret(ctx context.Context, projectID, name, encryptedValue string) (*Secret, error) {
 	var s Secret
@@ -518,7 +508,6 @@ func (r *Repository) DeleteSecret(ctx context.Context, projectID, name string) e
 	return nil
 }
 
-// Trigger observability
 
 type TriggerStat struct {
 	FunctionName string  `json:"function_name"`
