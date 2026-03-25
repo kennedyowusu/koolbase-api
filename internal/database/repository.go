@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -135,7 +136,9 @@ func (r *Repository) InsertRecord(ctx context.Context, projectID, collectionID s
 	if err != nil {
 		return nil, err
 	}
-	json.Unmarshal(rawData, &rec.Data)
+	if err := json.Unmarshal(rawData, &rec.Data); err != nil {
+		return nil, err
+	}
 	return &rec, nil
 }
 
@@ -153,8 +156,27 @@ func (r *Repository) GetRecord(ctx context.Context, projectID, recordID string) 
 		}
 		return nil, err
 	}
-	json.Unmarshal(rawData, &rec.Data)
+	if err := json.Unmarshal(rawData, &rec.Data); err != nil {
+		return nil, err
+	}
 	return &rec, nil
+}
+
+// isSafeFieldName validates that a field name only contains safe characters
+// to prevent SQL injection via filter keys.
+func isSafeFieldName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') ||
+			(c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9') ||
+			c == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *Repository) QueryRecords(ctx context.Context, projectID, collectionID string, filters map[string]interface{}, limit, offset int, orderBy string, orderDesc bool) ([]Record, int, error) {
@@ -163,6 +185,10 @@ func (r *Repository) QueryRecords(ctx context.Context, projectID, collectionID s
 	filterSQL := ""
 
 	for key, val := range filters {
+		// Sanitize filter keys to prevent SQL injection
+		if !isSafeFieldName(key) {
+			continue
+		}
 		filterSQL += fmt.Sprintf(` AND data->>'%s' = $%d`, key, argIdx)
 		args = append(args, fmt.Sprintf("%v", val))
 		argIdx++
@@ -208,7 +234,9 @@ func (r *Repository) QueryRecords(ctx context.Context, projectID, collectionID s
 		if err := rows.Scan(&rec.ID, &rec.ProjectID, &rec.CollectionID, &rec.CreatedBy, &rawData, &rec.CreatedAt, &rec.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
-		json.Unmarshal(rawData, &rec.Data)
+		if err := json.Unmarshal(rawData, &rec.Data); err != nil {
+			return nil, 0, err
+		}
 		records = append(records, rec)
 	}
 	return records, total, rows.Err()
@@ -234,7 +262,9 @@ func (r *Repository) UpdateRecord(ctx context.Context, projectID, recordID strin
 		}
 		return nil, err
 	}
-	json.Unmarshal(rawData, &rec.Data)
+	if err := json.Unmarshal(rawData, &rec.Data); err != nil {
+		return nil, err
+	}
 	return &rec, nil
 }
 
@@ -266,4 +296,166 @@ func (r *Repository) GetCollectionByID(ctx context.Context, collectionID string)
 		return nil, err
 	}
 	return &c, nil
+}
+
+// PopulateRecords fetches related records for a list of records.
+// populateFields format: "field_name:collection_name"
+// e.g. "author_id:users" fetches the record from "users" where id = record.data["author_id"]
+// and injects it as "author" into the record data.
+func (r *Repository) PopulateRecords(ctx context.Context, projectID string, records []Record, populateFields []string) error {
+	if len(populateFields) == 0 || len(records) == 0 {
+		return nil
+	}
+
+	// Cache collection lookups to avoid N+1
+	collectionCache := map[string]*Collection{}
+
+	for _, pop := range populateFields {
+		// Validate format contains ":"
+		if !strings.Contains(pop, ":") {
+			continue
+		}
+
+		parts := splitPopulate(pop)
+		if parts == nil {
+			continue
+		}
+		fieldName := parts[0]
+		collectionName := parts[1]
+		if fieldName == "" || collectionName == "" {
+			continue
+		}
+
+		// Validate field name is safe
+		if !isSafeFieldName(fieldName) {
+			continue
+		}
+
+		// Get collection from cache or DB
+		col, ok := collectionCache[collectionName]
+		if !ok {
+			var err error
+			col, err = r.GetCollection(ctx, projectID, collectionName)
+			if err != nil {
+				// Collection doesn't exist — skip this populate field
+				continue
+			}
+			collectionCache[collectionName] = col
+		}
+
+		// Collect all referenced IDs from records
+		idSet := map[string]bool{}
+		for _, rec := range records {
+			val, ok := rec.Data[fieldName]
+			if !ok {
+				continue
+			}
+			id, ok := val.(string)
+			if !ok || id == "" {
+				continue
+			}
+			idSet[id] = true
+		}
+		if len(idSet) == 0 {
+			continue
+		}
+
+		// Cap at 100 IDs to prevent unbounded queries
+		ids := make([]string, 0, len(idSet))
+		for id := range idSet {
+			ids = append(ids, id)
+			if len(ids) >= 100 {
+				break
+			}
+		}
+
+		// Use ANY with string array for safe queries
+		rows, err := r.db.Query(ctx,
+			`SELECT id, project_id, collection_id, created_by, data, created_at, updated_at
+			 FROM db_records
+			 WHERE project_id = $1
+			 AND collection_id = $2
+			 AND id = ANY($3)
+			 AND deleted_at IS NULL`,
+			projectID, col.ID, ids,
+		)
+		if err != nil {
+			return fmt.Errorf("populate query failed for %s: %w", pop, err)
+		}
+
+		refMap := map[string]map[string]interface{}{}
+		for rows.Next() {
+			var ref Record
+			var rawData []byte
+			if err := rows.Scan(
+				&ref.ID,
+				&ref.ProjectID,
+				&ref.CollectionID,
+				&ref.CreatedBy,
+				&rawData,
+				&ref.CreatedAt,
+				&ref.UpdatedAt,
+			); err != nil {
+				rows.Close()
+				return fmt.Errorf("populate scan failed for %s: %w", pop, err)
+			}
+			if err := json.Unmarshal(rawData, &ref.Data); err != nil {
+				rows.Close()
+				return fmt.Errorf("populate unmarshal failed for %s: %w", pop, err)
+			}
+			refMap[ref.ID] = map[string]interface{}{
+				"id":         ref.ID,
+				"data":       ref.Data,
+				"created_at": ref.CreatedAt,
+				"updated_at": ref.UpdatedAt,
+			}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("populate rows error for %s: %w", pop, err)
+		}
+
+		// Inject populated data — strip _id suffix for key name (author_id → author)
+		populatedKey := strings.TrimSuffix(fieldName, "_id")
+		for i, rec := range records {
+			val, ok := rec.Data[fieldName]
+			if !ok {
+				continue
+			}
+			id, ok := val.(string)
+			if !ok || id == "" {
+				continue
+			}
+			ref, found := refMap[id]
+			if !found {
+				continue
+			}
+			// Guard against key collision — don't overwrite existing non-ID field
+			if _, exists := rec.Data[populatedKey]; exists && populatedKey != fieldName {
+				continue
+			}
+			// Copy data map to avoid shared mutation
+			newData := make(map[string]interface{}, len(rec.Data)+1)
+			for k, v := range rec.Data {
+				newData[k] = v
+			}
+			newData[populatedKey] = ref
+			records[i].Data = newData
+		}
+	}
+	return nil
+}
+
+func splitPopulate(s string) []string {
+	for i, c := range s {
+		if c == ':' {
+			left := strings.TrimSpace(s[:i])
+			right := strings.TrimSpace(s[i+1:])
+			if left == "" || right == "" {
+				return nil
+			}
+			return []string{left, right}
+		}
+	}
+	return nil
 }

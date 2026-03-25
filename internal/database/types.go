@@ -38,6 +38,7 @@ type QueryRequest struct {
 	Offset     int                    `json:"offset"`
 	OrderBy    string                 `json:"order_by"`
 	OrderDesc  bool                   `json:"order_desc"`
+	Populate   []string               `json:"populate"`
 }
 
 type CreateCollectionRequest struct {

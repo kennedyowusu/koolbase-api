@@ -18,7 +18,6 @@ func NewService(repo *Repository, hub *realtime.Hub, fnSvc *functions.Service) *
 	return &Service{repo: repo, hub: hub, fnSvc: fnSvc}
 }
 
-// Collection permission rules
 const (
 	RulePublic        = "public"
 	RuleAuthenticated = "authenticated"
@@ -80,7 +79,6 @@ func (s *Service) Insert(ctx context.Context, projectID, userID string, req Inse
 		return nil, ErrCollectionNotFound
 	}
 
-	// Check write permission
 	if err := checkWritePermission(col.WriteRule, userID); err != nil {
 		return nil, err
 	}
@@ -109,7 +107,8 @@ func (s *Service) Get(ctx context.Context, projectID, userID, recordID string) (
 		return nil, err
 	}
 
-	col, err := s.repo.GetCollection(ctx, projectID, "")
+	// Fix: use GetCollectionByID instead of GetCollection with empty name
+	col, err := s.repo.GetCollectionByID(ctx, rec.CollectionID)
 	if err == nil {
 		if err := checkReadPermission(col.ReadRule, userID, rec.CreatedBy); err != nil {
 			return nil, err
@@ -129,7 +128,6 @@ func (s *Service) Query(ctx context.Context, projectID, userID string, req Query
 		return nil, 0, ErrCollectionNotFound
 	}
 
-	// Check read permission
 	if col.ReadRule == RuleOwner && userID == "" {
 		return nil, 0, errors.New("authentication required")
 	}
@@ -142,7 +140,6 @@ func (s *Service) Query(ctx context.Context, projectID, userID string, req Query
 		filters = map[string]interface{}{}
 	}
 
-	// If owner rule — scope to user's own records
 	if col.ReadRule == RuleOwner && userID != "" {
 		filters["created_by"] = userID
 	}
@@ -152,7 +149,19 @@ func (s *Service) Query(ctx context.Context, projectID, userID string, req Query
 		limit = 20
 	}
 
-	return s.repo.QueryRecords(ctx, projectID, col.ID, filters, limit, req.Offset, req.OrderBy, req.OrderDesc)
+	records, total, err := s.repo.QueryRecords(ctx, projectID, col.ID, filters, limit, req.Offset, req.OrderBy, req.OrderDesc)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Populate related records if requested
+	if len(req.Populate) > 0 {
+		if err := s.repo.PopulateRecords(ctx, projectID, records, req.Populate); err != nil {
+			return nil, 0, err
+		}
+	}
+
+	return records, total, nil
 }
 
 func (s *Service) Update(ctx context.Context, projectID, userID, recordID string, req UpdateRequest) (*Record, error) {
@@ -224,8 +233,6 @@ func (s *Service) Delete(ctx context.Context, projectID, userID, recordID string
 	}
 	return nil
 }
-
-// Permission helpers
 
 func checkReadPermission(rule, userID string, createdBy *string) error {
 	if rule == RulePublic {
