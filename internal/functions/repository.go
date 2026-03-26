@@ -47,7 +47,7 @@ func (r *Repository) AuthorizeProject(ctx context.Context, projectID, orgID stri
 	return count > 0, err
 }
 
-func (r *Repository) DeployFunction(ctx context.Context, projectID, name, code string, timeoutMs int) (*Function, error) {
+func (r *Repository) DeployFunction(ctx context.Context, projectID, name, runtime, code string, timeoutMs int) (*Function, error) {
 	now := time.Now().UTC()
 
 	tx, err := r.db.Begin(ctx)
@@ -75,10 +75,10 @@ func (r *Repository) DeployFunction(ctx context.Context, projectID, name, code s
 	var fn Function
 	if err := tx.QueryRow(ctx,
 		`INSERT INTO project_functions
-		 (project_id, name, code, version, is_active, timeout_ms, last_deployed_at)
-		 VALUES ($1, $2, $3, $4, TRUE, $5, $6)
+		 (project_id, name, runtime, code, version, is_active, timeout_ms, last_deployed_at)
+		 VALUES ($1, $2, $3, $4, $5, TRUE, $6, $7)
 		 RETURNING id, project_id, name, runtime, entry_file, code, version, is_active, timeout_ms, enabled, last_deployed_at, created_at, updated_at`,
-		projectID, name, code, nextVersion, timeoutMs, now,
+		projectID, name, runtime, code, nextVersion, timeoutMs, now,
 	).Scan(
 		&fn.ID, &fn.ProjectID, &fn.Name, &fn.Runtime, &fn.EntryFile,
 		&fn.Code, &fn.Version, &fn.IsActive, &fn.TimeoutMs, &fn.Enabled,

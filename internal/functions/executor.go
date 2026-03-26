@@ -43,6 +43,9 @@ type ExecutionResult struct {
 }
 
 func SyncFunctionToDisk(fn *Function) error {
+	if fn.Runtime == "dart" {
+		return SyncDartFunctionToDisk(fn)
+	}
 	dir := filepath.Join(functionsDir, fn.ProjectID, fn.Name, fmt.Sprintf("v%d", fn.Version))
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -125,6 +128,9 @@ console.log("__KOOLBASE_RESULT__" + __output);
 }
 
 func Execute(fn *Function, input ExecutionInput) *ExecutionResult {
+	if fn.Runtime == "dart" {
+		return ExecuteDart(fn, input)
+	}
 	start := time.Now()
 	result := &ExecutionResult{}
 
@@ -235,4 +241,195 @@ func findMarker(s, marker string) int {
 		}
 	}
 	return -1
+}
+
+func dartPath() string {
+	if p := os.Getenv("DART_PATH"); p != "" {
+		return p
+	}
+	return "/usr/bin/dart"
+}
+
+func buildDartWrapper(userCode string) string {
+	return fmt.Sprintf(`
+import 'dart:convert';
+import 'dart:io';
+
+// ── Koolbase Dart Function Runtime ─────────────────────────────────
+final _ctxRaw = Platform.environment['__KOOLBASE_CTX'] ?? '{}';
+final _ctxData = jsonDecode(_ctxRaw) as Map<String, dynamic>;
+final _testMode = _ctxData['test_mode'] == true;
+final _dbCtx = _ctxData['db'] as Map<String, dynamic>? ?? {};
+final _baseUrl = _dbCtx['base_url'] as String? ?? '';
+final _apiKey = _dbCtx['api_key'] as String? ?? '';
+
+Future<Map<String, dynamic>> _dbInsert(String collection, Map<String, dynamic> data) async {
+  if (_testMode) return {'__test': true, 'simulated': 'insert', 'collection': collection};
+  final client = HttpClient();
+  final req = await client.postUrl(Uri.parse('$_baseUrl/v1/sdk/db/insert'));
+  req.headers.set('Content-Type', 'application/json');
+  req.headers.set('x-api-key', _apiKey);
+  req.write(jsonEncode({'collection': collection, 'data': data}));
+  final res = await req.close();
+  final body = await res.transform(utf8.decoder).join();
+  client.close();
+  return jsonDecode(body) as Map<String, dynamic>;
+}
+
+Future<Map<String, dynamic>> _dbFind(String collection, [Map<String, dynamic>? filters, int limit = 20]) async {
+  if (_testMode) return {'__test': true, 'simulated': 'find', 'records': []};
+  final client = HttpClient();
+  final req = await client.postUrl(Uri.parse('$_baseUrl/v1/sdk/db/query'));
+  req.headers.set('Content-Type', 'application/json');
+  req.headers.set('x-api-key', _apiKey);
+  req.write(jsonEncode({'collection': collection, 'filters': filters ?? {}, 'limit': limit}));
+  final res = await req.close();
+  final body = await res.transform(utf8.decoder).join();
+  client.close();
+  return jsonDecode(body) as Map<String, dynamic>;
+}
+
+Future<Map<String, dynamic>> _dbUpdate(String id, Map<String, dynamic> data) async {
+  if (_testMode) return {'__test': true, 'simulated': 'update', 'id': id};
+  final client = HttpClient();
+  final req = await client.patchUrl(Uri.parse('$_baseUrl/v1/sdk/db/records/$id'));
+  req.headers.set('Content-Type', 'application/json');
+  req.headers.set('x-api-key', _apiKey);
+  req.write(jsonEncode({'data': data}));
+  final res = await req.close();
+  final body = await res.transform(utf8.decoder).join();
+  client.close();
+  return jsonDecode(body) as Map<String, dynamic>;
+}
+
+Future<void> _dbDelete(String id) async {
+  if (_testMode) return;
+  final client = HttpClient();
+  final req = await client.deleteUrl(Uri.parse('$_baseUrl/v1/sdk/db/records/$id'));
+  req.headers.set('x-api-key', _apiKey);
+  await req.close();
+  client.close();
+}
+
+final ctx = {
+  'request': _ctxData['request'] ?? {},
+  'env': _ctxData['env'] ?? {},
+  'db': {
+    'insert': _dbInsert,
+    'find': _dbFind,
+    'update': _dbUpdate,
+    'delete': _dbDelete,
+  },
+};
+// ── End Runtime ────────────────────────────────────────────────────
+
+%s
+
+// Execute
+void main() async {
+  final result = await handler(ctx);
+  final output = result != null ? jsonEncode(result) : jsonEncode({'ok': true});
+  print('__KOOLBASE_RESULT__' + output);
+}
+`, userCode)
+}
+
+func SyncDartFunctionToDisk(fn *Function) error {
+	dir := filepath.Join(functionsDir, fn.ProjectID, fn.Name, fmt.Sprintf("v%d", fn.Version))
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	wrapper := buildDartWrapper(fn.Code)
+	return os.WriteFile(filepath.Join(dir, "index.dart"), []byte(wrapper), 0644)
+}
+
+func ExecuteDart(fn *Function, input ExecutionInput) *ExecutionResult {
+	start := time.Now()
+	result := &ExecutionResult{}
+
+	filePath := filepath.Join(functionsDir, fn.ProjectID, fn.Name,
+		fmt.Sprintf("v%d", fn.Version), "index.dart")
+
+	if input.TestMode {
+		tmpDir := filepath.Join(functionsDir, fn.ProjectID, fn.Name, fmt.Sprintf("v%d-test", fn.Version))
+		if err := os.MkdirAll(tmpDir, 0755); err != nil {
+			result.Error = "failed to create test dir: " + err.Error()
+			result.Status = 500
+			return result
+		}
+		tmpPath := filepath.Join(tmpDir, "index.dart")
+		if err := os.WriteFile(tmpPath, []byte(buildDartWrapper(fn.Code)), 0644); err != nil {
+			result.Error = "failed to write test file: " + err.Error()
+			result.Status = 500
+			return result
+		}
+		filePath = tmpPath
+	} else {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			result.Error = "function file not found — redeploy required"
+			result.Status = 500
+			result.DurationMs = int(time.Since(start).Milliseconds())
+			return result
+		}
+	}
+
+	ctxJSON, err := json.Marshal(input)
+	if err != nil {
+		result.Error = "failed to build execution context"
+		result.Status = 500
+		result.DurationMs = int(time.Since(start).Milliseconds())
+		return result
+	}
+
+	timeout := time.Duration(fn.TimeoutMs) * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, dartPath(), "run", filePath)
+
+	envVars := []string{fmt.Sprintf("__KOOLBASE_CTX=%s", ctxJSON)}
+	for k, v := range input.Secrets {
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
+	}
+	cmd.Env = envVars
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	runErr := cmd.Run()
+	result.DurationMs = int(time.Since(start).Milliseconds())
+
+	if ctx.Err() == context.DeadlineExceeded {
+		result.Status = 504
+		result.Error = "function execution timed out"
+		return result
+	}
+
+	if runErr != nil {
+		result.Status = 500
+		result.Error = stderr.String()
+		if result.Error == "" {
+			result.Error = runErr.Error()
+		}
+		return result
+	}
+
+	output := stdout.String()
+	marker := "__KOOLBASE_RESULT__"
+	if idx := findMarker(output, marker); idx >= 0 {
+		jsonStr := output[idx+len(marker):]
+		var body map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonStr), &body); err == nil {
+			result.Body = body
+		}
+	}
+
+	if result.Body == nil {
+		result.Body = map[string]interface{}{"ok": true}
+	}
+
+	result.Status = 200
+	result.Output = output
+	return result
 }

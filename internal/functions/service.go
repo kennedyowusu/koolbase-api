@@ -15,7 +15,7 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) Deploy(ctx context.Context, projectID, name, code string, timeoutMs int) (*Function, error) {
+func (s *Service) Deploy(ctx context.Context, projectID, name, runtime, code string, timeoutMs int) (*Function, error) {
 	if name == "" {
 		return nil, errors.New("function name is required")
 	}
@@ -35,7 +35,7 @@ func (s *Service) Deploy(ctx context.Context, projectID, name, code string, time
 		timeoutMs = 30000
 	}
 
-	fn, err := s.repo.DeployFunction(ctx, projectID, name, code, timeoutMs)
+	fn, err := s.repo.DeployFunction(ctx, projectID, name, runtime, code, timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("deploy failed: %w", err)
 	}

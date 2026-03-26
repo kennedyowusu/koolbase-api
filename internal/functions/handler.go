@@ -75,7 +75,11 @@ func (h *Handler) DeployFunction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fn, err := h.svc.Deploy(r.Context(), projectID, req.Name, req.Code, req.TimeoutMs)
+	runtime := req.Runtime
+	if runtime == "" {
+		runtime = "deno"
+	}
+	fn, err := h.svc.Deploy(r.Context(), projectID, req.Name, runtime, req.Code, req.TimeoutMs)
 	if err != nil {
 		respond.Error(w, http.StatusBadRequest, err.Error())
 		return

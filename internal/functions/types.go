@@ -44,6 +44,7 @@ type Log struct {
 }
 
 type DeployRequest struct {
+	Runtime   string `json:"runtime"`   // "deno" (default) or "dart"
 	Name      string `json:"name"`
 	Code      string `json:"code"`
 	TimeoutMs int    `json:"timeout_ms"`
