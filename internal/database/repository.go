@@ -49,7 +49,7 @@ func (r *Repository) AuthorizeProject(ctx context.Context, projectID, orgID stri
 	return count > 0, err
 }
 
-func (r *Repository) CreateCollection(ctx context.Context, projectID, name, readRule, writeRule, deleteRule string) (*Collection, error) {
+func (r *Repository) CreateCollection(ctx context.Context, projectID, name, readRule, writeRule, deleteRule, ownerField, ruleMode string, ruleConditions []byte) (*Collection, error) {
 	var c Collection
 	err := r.db.QueryRow(ctx,
 		`INSERT INTO db_collections (project_id, name, read_rule, write_rule, delete_rule)
@@ -441,4 +441,36 @@ func splitPopulate(s string) []string {
 		}
 	}
 	return nil
+}
+
+func nullableString(s string) *string {
+        if s == "" {
+                return nil
+        }
+        return &s
+}
+
+// GetUserContext fetches the user's context fields for rule evaluation.
+// Returns a map with id, org_id, email, role.
+func (r *Repository) GetUserContext(ctx context.Context, userID string) (map[string]interface{}, error) {
+	if userID == "" {
+		return map[string]interface{}{}, nil
+	}
+	var id, orgID, email, role string
+	err := r.db.QueryRow(ctx,
+		`SELECT id, org_id, email, role FROM users WHERE id = $1 AND deleted_at IS NULL`,
+		userID,
+	).Scan(&id, &orgID, &email, &role)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return map[string]interface{}{}, nil
+		}
+		return nil, err
+	}
+	return map[string]interface{}{
+		"id":     id,
+		"org_id": orgID,
+		"email":  email,
+		"role":   role,
+	}, nil
 }

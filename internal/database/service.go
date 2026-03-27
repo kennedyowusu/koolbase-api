@@ -2,7 +2,9 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/kennedyowusu/hatchway-api/internal/functions"
 	"github.com/kennedyowusu/hatchway-api/internal/realtime"
@@ -22,6 +24,8 @@ const (
 	RulePublic        = "public"
 	RuleAuthenticated = "authenticated"
 	RuleOwner         = "owner"
+	RuleScoped        = "scoped"
+	RuleConditional   = "conditional"
 )
 
 func (s *Service) CreateCollection(ctx context.Context, projectID string, req CreateCollectionRequest) (*Collection, error) {
@@ -46,16 +50,37 @@ func (s *Service) CreateCollection(ctx context.Context, projectID string, req Cr
 	}
 
 	if !isValidReadRule(readRule) {
-		return nil, errors.New("invalid read_rule: must be public, authenticated, or owner")
+		return nil, errors.New("invalid read_rule: must be public, authenticated, owner, scoped, or conditional")
 	}
 	if !isValidWriteRule(writeRule) {
-		return nil, errors.New("invalid write_rule: must be authenticated or owner")
+		return nil, errors.New("invalid write_rule: must be authenticated, owner, scoped, or conditional")
 	}
 	if !isValidDeleteRule(deleteRule) {
-		return nil, errors.New("invalid delete_rule: must be authenticated or owner")
+		return nil, errors.New("invalid delete_rule: must be authenticated, owner, scoped, or conditional")
 	}
 
-	return s.repo.CreateCollection(ctx, projectID, req.Name, readRule, writeRule, deleteRule)
+	ruleMode := req.RuleMode
+	if ruleMode == "" {
+		ruleMode = "all"
+	}
+	if ruleMode != "all" && ruleMode != "any" {
+		return nil, errors.New("invalid rule_mode: must be all or any")
+	}
+
+	// Validate and encode conditions
+	conditionsJSON := []byte("[]")
+	if len(req.RuleConditions) > 0 {
+		if err := validateConditions(req.RuleConditions); err != nil {
+			return nil, err
+		}
+		var err error
+		conditionsJSON, err = encodeConditions(req.RuleConditions)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return s.repo.CreateCollection(ctx, projectID, req.Name, readRule, writeRule, deleteRule, req.OwnerField, ruleMode, conditionsJSON)
 }
 
 func (s *Service) ListCollections(ctx context.Context, projectID string) ([]Collection, error) {
@@ -258,15 +283,15 @@ func checkWritePermission(rule, userID string) error {
 }
 
 func isValidReadRule(r string) bool {
-	return r == RulePublic || r == RuleAuthenticated || r == RuleOwner
+	return r == RulePublic || r == RuleAuthenticated || r == RuleOwner || r == RuleScoped || r == RuleConditional
 }
 
 func isValidWriteRule(r string) bool {
-	return r == RuleAuthenticated || r == RuleOwner
+	return r == RuleAuthenticated || r == RuleOwner || r == RuleScoped || r == RuleConditional
 }
 
 func isValidDeleteRule(r string) bool {
-	return r == RuleAuthenticated || r == RuleOwner
+	return r == RuleAuthenticated || r == RuleOwner || r == RuleScoped || r == RuleConditional
 }
 
 func validateCollectionName(name string) error {
@@ -279,6 +304,105 @@ func validateCollectionName(name string) error {
 		}
 	}
 	return nil
+}
+
+
+// ─── Rule Evaluation ──────────────────────────────────────────────────────
+
+func evaluateRule(record map[string]interface{}, user map[string]interface{}, mode string, conditions []Condition) bool {
+	if len(conditions) == 0 {
+		return true
+	}
+	if mode == "any" {
+		for _, c := range conditions {
+			if evaluateCondition(record, user, c) {
+				return true
+			}
+		}
+		return false
+	}
+	// default = "all"
+	for _, c := range conditions {
+		if !evaluateCondition(record, user, c) {
+			return false
+		}
+	}
+	return true
+}
+
+func evaluateCondition(record map[string]interface{}, user map[string]interface{}, c Condition) bool {
+	recordVal := record[c.Field]
+
+	var compareVal interface{}
+	if c.Source == "user" {
+		compareVal = user[c.Field]
+	} else {
+		compareVal = c.Value
+	}
+
+	switch c.Type {
+	case "equals":
+		return fmt.Sprintf("%v", recordVal) == fmt.Sprintf("%v", compareVal)
+	case "not_equals":
+		return fmt.Sprintf("%v", recordVal) != fmt.Sprintf("%v", compareVal)
+	case "in":
+		return containsValue(compareVal, recordVal)
+	case "not_in":
+		return !containsValue(compareVal, recordVal)
+	default:
+		return false
+	}
+}
+
+func containsValue(list interface{}, val interface{}) bool {
+	valStr := fmt.Sprintf("%v", val)
+	switch v := list.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if fmt.Sprintf("%v", item) == valStr {
+				return true
+			}
+		}
+	case []string:
+		for _, item := range v {
+			if item == valStr {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func autoInjectUserFields(data map[string]interface{}, user map[string]interface{}, conditions []Condition) {
+	for _, c := range conditions {
+		if c.Source == "user" {
+			if _, exists := data[c.Field]; !exists {
+				if userVal, ok := user[c.Field]; ok {
+					data[c.Field] = userVal
+				}
+			}
+		}
+	}
+}
+
+func validateConditions(conditions []Condition) error {
+	validTypes := map[string]bool{"equals": true, "not_equals": true, "in": true, "not_in": true}
+	for _, c := range conditions {
+		if !validTypes[c.Type] {
+			return fmt.Errorf("invalid condition type: %s", c.Type)
+		}
+		if c.Field == "" {
+			return errors.New("condition field is required")
+		}
+		if c.Source != "user" && c.Source != "" && c.Value == nil {
+			return errors.New("condition must have source=user or a value")
+		}
+	}
+	return nil
+}
+
+func encodeConditions(conditions []Condition) ([]byte, error) {
+	return json.Marshal(conditions)
 }
 
 func (s *Service) fireTriggers(ctx context.Context, projectID, eventType, collection string, payload map[string]interface{}) {
