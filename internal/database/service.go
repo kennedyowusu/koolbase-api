@@ -67,7 +67,6 @@ func (s *Service) CreateCollection(ctx context.Context, projectID string, req Cr
 		return nil, errors.New("invalid rule_mode: must be all or any")
 	}
 
-	// Validate and encode conditions
 	conditionsJSON := []byte("[]")
 	if len(req.RuleConditions) > 0 {
 		if err := validateConditions(req.RuleConditions); err != nil {
@@ -106,6 +105,25 @@ func (s *Service) Insert(ctx context.Context, projectID, userID string, req Inse
 
 	if err := checkWritePermission(col.WriteRule, userID); err != nil {
 		return nil, err
+	}
+
+	// Enforce scoped/conditional write rules
+	if col.WriteRule == RuleScoped || col.WriteRule == RuleConditional {
+		userCtx, err := s.repo.GetUserContext(ctx, userID)
+		if err != nil {
+			return nil, errors.New("failed to resolve user context")
+		}
+		autoInjectUserFields(req.Data, userCtx, col.RuleConditions)
+		if col.WriteRule == RuleScoped && col.OwnerField != nil {
+			if fmt.Sprintf("%v", req.Data[*col.OwnerField]) != fmt.Sprintf("%v", userCtx[*col.OwnerField]) {
+				return nil, errors.New("permission denied: data does not match user scope")
+			}
+		}
+		if col.WriteRule == RuleConditional {
+			if !evaluateRule(req.Data, userCtx, col.RuleMode, col.RuleConditions) {
+				return nil, errors.New("permission denied: write conditions not met")
+			}
+		}
 	}
 
 	var createdBy *string
@@ -158,14 +176,26 @@ func (s *Service) Query(ctx context.Context, projectID, userID string, req Query
 	if col.ReadRule == RuleAuthenticated && userID == "" {
 		return nil, 0, errors.New("authentication required")
 	}
+	if (col.ReadRule == RuleScoped || col.ReadRule == RuleConditional) && userID == "" {
+		return nil, 0, errors.New("authentication required")
+	}
 
 	filters := req.Filters
 	if filters == nil {
 		filters = map[string]interface{}{}
 	}
 
+	// If owner rule — scope to user's own records
 	if col.ReadRule == RuleOwner && userID != "" {
 		filters["created_by"] = userID
+	}
+
+	// Enforce scoped read rule — inject owner_field as filter
+	if col.ReadRule == RuleScoped && col.OwnerField != nil {
+		userCtx, err := s.repo.GetUserContext(ctx, userID)
+		if err == nil && userCtx[*col.OwnerField] != nil {
+			filters[*col.OwnerField] = fmt.Sprintf("%v", userCtx[*col.OwnerField])
+		}
 	}
 
 	limit := req.Limit
@@ -178,6 +208,20 @@ func (s *Service) Query(ctx context.Context, projectID, userID string, req Query
 		return nil, 0, err
 	}
 
+	// Post-fetch filtering for conditional read rules
+	if col.ReadRule == RuleConditional && len(col.RuleConditions) > 0 {
+		userCtx, _ := s.repo.GetUserContext(ctx, userID)
+		filtered := records[:0]
+		for _, rec := range records {
+			if evaluateRule(rec.Data, userCtx, col.RuleMode, col.RuleConditions) {
+				filtered = append(filtered, rec)
+			}
+		}
+		records = filtered
+		total = len(records)
+	}
+
+	// Populate related records if requested
 	if len(req.Populate) > 0 {
 		if err := s.repo.PopulateRecords(ctx, projectID, records, req.Populate); err != nil {
 			return nil, 0, err
@@ -257,6 +301,8 @@ func (s *Service) Delete(ctx context.Context, projectID, userID, recordID string
 	return nil
 }
 
+// ─── Permission Helpers ────────────────────────────────────────────────────
+
 func checkReadPermission(rule, userID string, createdBy *string) error {
 	if rule == RulePublic {
 		return nil
@@ -305,7 +351,6 @@ func validateCollectionName(name string) error {
 	}
 	return nil
 }
-
 
 // ─── Rule Evaluation ──────────────────────────────────────────────────────
 
