@@ -284,6 +284,17 @@ func main() {
 		r.Use(apimiddleware.InternalOnly)
 		r.Post("/environments/{environment_id}/snapshot/rebuild", adminHandler.RebuildSnapshot)
 	})
+        r.Route("/v1/admin", func(r chi.Router) {
+                r.Use(apimiddleware.AdminIPWhitelist)
+                r.Use(apimiddleware.RequireAuth(authService))
+                r.Use(apimiddleware.AdminOnly)
+                r.Get("/stats", adminHandler.GetStats)
+                r.Get("/orgs", adminHandler.GetOrgs)
+                r.Get("/users", adminHandler.GetUsers)
+                r.Get("/projects", adminHandler.GetProjects)
+                r.Get("/functions/logs", adminHandler.GetFunctionLogs)
+                r.Get("/dead-letters", adminHandler.GetDeadLetters)
+        })
 
 	port := os.Getenv("PORT")
 	if port == "" {
