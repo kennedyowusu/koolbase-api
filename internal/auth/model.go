@@ -77,3 +77,7 @@ func (u *User) GetID() string {
 func (u *User) GetOrgID() string {
 	return u.OrgID
 }
+
+func (u *User) GetEmail() string {
+	return u.Email
+}
