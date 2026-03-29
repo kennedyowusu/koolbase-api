@@ -25,6 +25,7 @@ import (
 	"github.com/kennedyowusu/hatchway-api/internal/billing"
 	"github.com/kennedyowusu/hatchway-api/internal/bootstrap"
 	"github.com/kennedyowusu/hatchway-api/internal/configs"
+	"github.com/kennedyowusu/hatchway-api/internal/cron"
 	kbdb "github.com/kennedyowusu/hatchway-api/internal/database"
 	"github.com/kennedyowusu/hatchway-api/internal/environments"
 	"github.com/kennedyowusu/hatchway-api/internal/flags"
@@ -118,6 +119,12 @@ func main() {
 	defer workerCancel()
 	fnWorker := functions.NewWorker(fnRepo, fnSvc)
 	go fnWorker.Start(workerCtx)
+
+	cronRepo := cron.NewRepository(database)
+        cronSvc := cron.NewService(cronRepo)
+        cronHandler := cron.NewHandler(cronSvc)
+        cronWorker := cron.NewWorker(cronSvc, fnSvc)
+        cronWorker.Start()
 
 	alertChecker := billing.NewAlertChecker(database, billingRepo, mailer, appURL)
 	go alertChecker.Run(workerCtx)
@@ -237,6 +244,10 @@ func main() {
 					r.Post("/projects/{project_id}/triggers", fnHandler.CreateTrigger)
 					r.Delete("/projects/{project_id}/triggers/{trigger_id}", fnHandler.DeleteTrigger)
 					r.Get("/projects/{project_id}/dead-letters", fnHandler.ListDeadLetters)
+					r.Get("/projects/{project_id}/crons", cronHandler.List)
+					r.Post("/projects/{project_id}/crons", cronHandler.Create)
+					r.Delete("/projects/{project_id}/crons/{cron_id}", cronHandler.Delete)
+					r.Patch("/projects/{project_id}/crons/{cron_id}", cronHandler.Update)
 					r.Get("/projects/{project_id}/secrets", fnHandler.ListSecrets)
 					r.Get("/orgs/{org_id}/usage", billingHandler.GetUsage)
 
