@@ -231,6 +231,7 @@ func main() {
 					r.Post("/projects/{project_id}/functions", fnHandler.DeployFunction)
 					r.Delete("/projects/{project_id}/functions/{function_name}", fnHandler.DeleteFunction)
 					r.Get("/projects/{project_id}/functions/logs", fnHandler.ListLogs)
+							r.Post("/projects/{project_id}/functions/{function_name}/invoke", fnHandler.DashboardInvoke)
 					r.Get("/projects/{project_id}/triggers", fnHandler.ListTriggers)
 					r.Get("/projects/{project_id}/trigger-stats", fnHandler.GetTriggerStats)
 					r.Post("/projects/{project_id}/triggers", fnHandler.CreateTrigger)

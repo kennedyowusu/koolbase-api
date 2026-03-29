@@ -379,3 +379,45 @@ func (h *Handler) GetTriggerStats(w http.ResponseWriter, r *http.Request) {
 	}
 	respond.OK(w, stats)
 }
+
+func (h *Handler) DashboardInvoke(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
+
+	projectID := chi.URLParam(r, "project_id")
+	name := chi.URLParam(r, "function_name")
+
+	var req InvokeRequest
+	if r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			if strings.Contains(err.Error(), "http: request body too large") {
+				respond.Error(w, http.StatusRequestEntityTooLarge, "payload too large: maximum 1MB")
+				return
+			}
+			respond.Error(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+	}
+	if req.Body == nil {
+		req.Body = map[string]interface{}{}
+	}
+	req.Headers = map[string]string{}
+	for k, v := range r.Header {
+		if len(v) > 0 {
+			req.Headers[strings.ToLower(k)] = v[0]
+		}
+	}
+
+	res, err := h.svc.Invoke(r.Context(), projectID, name, "", req)
+	if err != nil {
+		if errors.Is(err, ErrFunctionNotFound) {
+			respond.Error(w, http.StatusNotFound, "function not found")
+			return
+		}
+		respond.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(res.Status)
+	json.NewEncoder(w).Encode(res.Body)
+}
