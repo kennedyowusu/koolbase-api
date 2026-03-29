@@ -142,6 +142,7 @@ func welcomeEmailHTML(name, dashboardURL, docsURL string) string {
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr><td align="center">
     <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color:#111827;border:1px solid #1f2937;border-radius:12px;overflow:hidden;">
+
       <!-- Logo -->
       <tr><td align="center" style="padding:40px 32px 24px 32px;">
         <table border="0" cellpadding="0" cellspacing="0">
@@ -157,62 +158,176 @@ func welcomeEmailHTML(name, dashboardURL, docsURL string) string {
           </tr>
         </table>
       </td></tr>
+
       <!-- Hero -->
       <tr><td align="center" style="padding:0 32px 24px 32px;">
         <h1 style="font-size:28px;font-weight:700;color:#ffffff;margin:0 0 16px 0;">Welcome to Koolbase, %s!</h1>
-        <p style="font-size:16px;color:#94a3b8;line-height:1.7;margin:0;">We're excited to help you manage feature flags, remote config, and version enforcement with ease.</p>
+        <p style="font-size:16px;color:#94a3b8;line-height:1.7;margin:0;">Your backend is ready. Everything you need to build production Flutter and React Native apps — auth, database, storage, realtime, functions, and more.</p>
       </td></tr>
+
       <!-- Steps -->
       <tr><td style="padding:0 32px 32px 32px;">
         <table border="0" cellpadding="0" cellspacing="0" width="100%%">
-          <tr><td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:8px;padding:16px;margin-bottom:12px;">
+
+          <tr><td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:8px;padding:16px;">
             <table border="0" cellpadding="0" cellspacing="0" width="100%%">
               <tr>
                 <td width="44" style="padding-right:12px;">
                   <div style="width:40px;height:40px;background-color:rgba(43,140,238,0.1);border-radius:50%%;text-align:center;line-height:40px;font-size:18px;">⌨️</div>
                 </td>
                 <td>
-                  <p style="font-size:14px;font-weight:600;color:#ffffff;margin:0 0 4px 0;">1. Install the SDK</p>
-                  <p style="font-size:13px;color:#64748b;margin:0;">Integrate Koolbase into your Flutter app in minutes.</p>
+                  <p style="font-size:14px;font-weight:600;color:#ffffff;margin:0 0 4px 0;">1. Install the Flutter SDK</p>
+                  <p style="font-size:13px;color:#64748b;margin:0 0 6px 0;">Add koolbase_flutter to your pubspec.yaml and initialize with your public key.</p>
+                  <code style="font-size:12px;color:#3b82f6;background-color:#0f172a;padding:4px 8px;border-radius:4px;display:inline-block;">flutter pub add koolbase_flutter</code>
                 </td>
               </tr>
             </table>
           </td></tr>
+
           <tr><td style="height:8px;"></td></tr>
+
           <tr><td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:8px;padding:16px;">
             <table border="0" cellpadding="0" cellspacing="0" width="100%%">
               <tr>
                 <td width="44" style="padding-right:12px;">
-                  <div style="width:40px;height:40px;background-color:rgba(43,140,238,0.1);border-radius:50%%;text-align:center;line-height:40px;font-size:18px;">🚩</div>
+                  <div style="width:40px;height:40px;background-color:rgba(43,140,238,0.1);border-radius:50%%;text-align:center;line-height:40px;font-size:18px;">🗄️</div>
                 </td>
                 <td>
-                  <p style="font-size:14px;font-weight:600;color:#ffffff;margin:0 0 4px 0;">2. Create your first flag</p>
-                  <p style="font-size:13px;color:#64748b;margin:0;">Toggle features instantly without a redeploy.</p>
+                  <p style="font-size:14px;font-weight:600;color:#ffffff;margin:0 0 4px 0;">2. Create a collection and insert your first record</p>
+                  <p style="font-size:13px;color:#64748b;margin:0;">Go to Database in the dashboard, create a collection, and start inserting records from your app.</p>
                 </td>
               </tr>
             </table>
           </td></tr>
+
           <tr><td style="height:8px;"></td></tr>
+
           <tr><td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:8px;padding:16px;">
             <table border="0" cellpadding="0" cellspacing="0" width="100%%">
               <tr>
                 <td width="44" style="padding-right:12px;">
-                  <div style="width:40px;height:40px;background-color:rgba(43,140,238,0.1);border-radius:50%%;text-align:center;line-height:40px;font-size:18px;">👥</div>
+                  <div style="width:40px;height:40px;background-color:rgba(43,140,238,0.1);border-radius:50%%;text-align:center;line-height:40px;font-size:18px;">🔑</div>
                 </td>
                 <td>
-                  <p style="font-size:14px;font-weight:600;color:#ffffff;margin:0 0 4px 0;">3. Invite your team</p>
-                  <p style="font-size:13px;color:#64748b;margin:0;">Collaborate with your engineers and product team.</p>
+                  <p style="font-size:14px;font-weight:600;color:#ffffff;margin:0 0 4px 0;">3. Add auth to your app</p>
+                  <p style="font-size:13px;color:#64748b;margin:0;">Register and log in users with a single SDK call. Sessions are managed automatically.</p>
                 </td>
               </tr>
             </table>
           </td></tr>
+
+          <tr><td style="height:8px;"></td></tr>
+
+          <tr><td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:8px;padding:16px;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+              <tr>
+                <td width="44" style="padding-right:12px;">
+                  <div style="width:40px;height:40px;background-color:rgba(43,140,238,0.1);border-radius:50%%;text-align:center;line-height:40px;font-size:18px;">⚡</div>
+                </td>
+                <td>
+                  <p style="font-size:14px;font-weight:600;color:#ffffff;margin:0 0 4px 0;">4. Deploy your first function</p>
+                  <p style="font-size:13px;color:#64748b;margin:0;">Write serverless functions in TypeScript or Dart and invoke them directly from your app.</p>
+                </td>
+              </tr>
+            </table>
+          </td></tr>
+
         </table>
       </td></tr>
+
+      <!-- What's included -->
+      <tr><td style="padding:0 32px 32px 32px;">
+        <p style="font-size:13px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 12px 0;">Everything included on the free plan</p>
+        <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+          <tr>
+            <td width="50%%" style="padding:0 4px 8px 0;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+                <tr>
+                  <td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;">
+                    <p style="font-size:13px;color:#94a3b8;margin:0;">🔑 Auth</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <td width="50%%" style="padding:0 0 8px 4px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+                <tr>
+                  <td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;">
+                    <p style="font-size:13px;color:#94a3b8;margin:0;">🗄️ Database</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td width="50%%" style="padding:0 4px 8px 0;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+                <tr>
+                  <td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;">
+                    <p style="font-size:13px;color:#94a3b8;margin:0;">📦 Storage</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <td width="50%%" style="padding:0 0 8px 4px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+                <tr>
+                  <td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;">
+                    <p style="font-size:13px;color:#94a3b8;margin:0;">⚡ Realtime</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td width="50%%" style="padding:0 4px 8px 0;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+                <tr>
+                  <td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;">
+                    <p style="font-size:13px;color:#94a3b8;margin:0;">🧑‍💻 Functions</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <td width="50%%" style="padding:0 0 8px 4px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+                <tr>
+                  <td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;">
+                    <p style="font-size:13px;color:#94a3b8;margin:0;">🚩 Feature Flags</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td width="50%%" style="padding:0 4px 0 0;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+                <tr>
+                  <td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;">
+                    <p style="font-size:13px;color:#94a3b8;margin:0;">⚙️ Remote Config</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <td width="50%%" style="padding:0 0 0 4px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%">
+                <tr>
+                  <td style="background-color:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:10px 12px;">
+                    <p style="font-size:13px;color:#94a3b8;margin:0;">📱 OTA Updates</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
       <!-- CTAs -->
       <tr><td style="padding:0 32px 40px 32px;">
         <a href="%s" style="display:block;width:100%%;padding:16px;background-color:#2b8cee;color:#ffffff;font-size:16px;font-weight:700;text-align:center;border-radius:8px;box-sizing:border-box;margin-bottom:12px;">Go to Dashboard</a>
-        <a href="%s" style="display:block;width:100%%;padding:16px;background-color:#1e293b;color:#ffffff;font-size:15px;font-weight:600;text-align:center;border-radius:8px;box-sizing:border-box;">View Documentation</a>
+        <a href="%s" style="display:block;width:100%%;padding:16px;background-color:#1e293b;color:#ffffff;font-size:15px;font-weight:600;text-align:center;border-radius:8px;box-sizing:border-box;">Read the Docs</a>
       </td></tr>
+
       <!-- Footer -->
       <tr><td align="center" style="padding:32px;background-color:rgba(15,23,42,0.5);border-top:1px solid #1f2937;">
         <div style="margin-bottom:16px;">
@@ -221,9 +336,10 @@ func welcomeEmailHTML(name, dashboardURL, docsURL string) string {
           <a href="https://koolbase.com/terms" style="color:#64748b;font-size:12px;margin:0 10px;">Terms</a> •
           <a href="https://koolbase.com/privacy" style="color:#64748b;font-size:12px;margin:0 10px;">Privacy</a>
         </div>
-        <p style="font-size:12px;color:#334155;margin:0;">© %s Koolbase Inc. All rights reserved.</p>
+        <p style="font-size:12px;color:#334155;margin:0;">© %s Koolbase. All rights reserved.</p>
         <div style="margin-top:16px;display:inline-block;padding:4px 12px;background-color:#1e293b;border-radius:99px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Powered by Koolbase</div>
       </td></tr>
+
     </table>
   </td></tr>
 </table>
