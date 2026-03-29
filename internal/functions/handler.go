@@ -417,7 +417,9 @@ func (h *Handler) DashboardInvoke(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(res.Status)
-	json.NewEncoder(w).Encode(res.Body)
+	respond.JSON(w, http.StatusOK, map[string]interface{}{
+		"status": res.Status,
+		"body":   res.Body,
+		"log_id": res.LogID,
+	})
 }
